@@ -26,7 +26,7 @@ Resources:
     Properties:
       FunctionName: ohmnic-anomaly-engine
       CodeUri: src/
-      Handler: engine.detector.lambda_handler
+      Handler: ingestion.handler.lambda_handler
       Runtime: python3.11
       MemorySize: 1024
       Timeout: 30
