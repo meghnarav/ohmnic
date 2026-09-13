@@ -104,7 +104,14 @@ pytest tests/ --cov=src
 ## License
 ```
 
-MIT
+None.
 
 ```
 
+---
+
+## Copyright
+
+```
+Copyright © 2026 Meghna Ravikumar. All rights reserved. No part of this software may be reproduced or distributed without permission.
+```
