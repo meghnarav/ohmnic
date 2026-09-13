@@ -1,7 +1,19 @@
 import json
 import logging
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
+
+
+def float_to_decimal(data: Any) -> Any:
+    if isinstance(data, float):
+        # Prevent precision issues by converting float to str first
+        return Decimal(str(data))
+    if isinstance(data, dict):
+        return {k: float_to_decimal(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [float_to_decimal(v) for v in data]
+    return data
 
 from pydantic import ValidationError
 
@@ -101,7 +113,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             })
             recent_history = recent_history[-10:]
             
-            BaselineManager.update_baseline(vid, {
+            payload_to_save = float_to_decimal({
                 "last_updated": datetime.now(timezone.utc).isoformat(),
                 "status": status,
                 "soc": telemetry.state_of_charge,
@@ -114,6 +126,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 "recent_history": recent_history,
                 "history_vectors": history
             })
+            BaselineManager.update_baseline(vid, payload_to_save)
             
         except (ValidationError, json.JSONDecodeError) as e:
             logger.error("Failed to parse record: %s", e)

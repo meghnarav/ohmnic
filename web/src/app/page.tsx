@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
+import { UserButton, OrganizationSwitcher } from "@clerk/nextjs";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, X, Trash2 } from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -15,10 +19,14 @@ import {
   ReferenceLine,
 } from "recharts";
 
+const BatteryPackCanvas = dynamic(() => import("../components/BatteryPackCanvas"), { ssr: false });
+
 interface Vehicle {
   vin: string;
   packType: string;
   soc: number;
+  soh: number; // State of Health
+  cycles: number;
   packVoltage: number;
   packCurrent: number;
   maxTemp: number;
@@ -26,7 +34,7 @@ interface Vehicle {
   deltaV: number;
   score: number;
   status: "NOMINAL" | "WARN" | "FAULT";
-  cells: number[]; // 24 representative cell voltages
+  cells: number[];
   history: { t: string; v: number; a: number; temp: number }[];
   shap: { feature: string; impact: number; base: string; obs: string }[];
 }
@@ -44,6 +52,8 @@ const SEED_FLEET: Vehicle[] = [
     vin: "VIN-EV-1000",
     packType: "NMC-811 / 96S2P",
     soc: 74.2,
+    soh: 98.4,
+    cycles: 112,
     packVoltage: 398.4,
     packCurrent: -42.1,
     maxTemp: 31.2,
@@ -68,6 +78,8 @@ const SEED_FLEET: Vehicle[] = [
     vin: "VIN-EV-1001",
     packType: "NMC-811 / 96S2P",
     soc: 89.4,
+    soh: 92.1,
+    cycles: 420,
     packVoltage: 351.8,
     packCurrent: 248.5,
     maxTemp: 61.4,
@@ -93,6 +105,8 @@ const SEED_FLEET: Vehicle[] = [
     vin: "VIN-EV-1002",
     packType: "LFP-Blade / 108S",
     soc: 61.8,
+    soh: 99.2,
+    cycles: 45,
     packVoltage: 348.1,
     packCurrent: -32.4,
     maxTemp: 28.4,
@@ -116,6 +130,8 @@ const SEED_FLEET: Vehicle[] = [
     vin: "VIN-EV-1003",
     packType: "NMC-811 / 96S2P",
     soc: 41.5,
+    soh: 88.5,
+    cycles: 610,
     packVoltage: 388.2,
     packCurrent: -78.4,
     maxTemp: 44.8,
@@ -140,6 +156,8 @@ const SEED_FLEET: Vehicle[] = [
     vin: "VIN-EV-1004",
     packType: "LFP-Blade / 108S",
     soc: 82.0,
+    soh: 96.8,
+    cycles: 185,
     packVoltage: 352.0,
     packCurrent: -24.0,
     maxTemp: 27.1,
@@ -163,12 +181,128 @@ const SEED_FLEET: Vehicle[] = [
 
 export default function SCADAConsole() {
   const [mounted, setMounted] = useState(false);
-  const [fleet] = useState<Vehicle[]>(SEED_FLEET);
+  const [fleet, setFleet] = useState<Vehicle[]>(SEED_FLEET);
   const [selectedVin, setSelectedVin] = useState<string>("VIN-EV-1001");
-  const [activeTab, setActiveTab] = useState<"SIGNALS" | "CELLS" | "SHAP">("CELLS");
+  const [activeTab, setActiveTab] = useState<"SIGNALS" | "CELLS" | "SHAP" | "TRIAGE" | "3D">("3D");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Modal Form State
+  const [newVin, setNewVin] = useState("");
+  const [newFleetId, setNewFleetId] = useState("");
+  const [newPackType, setNewPackType] = useState("NMC-811 / 96S2P");
+
+  const handleOnboard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const capacity = newPackType.includes("LFP") ? 60.0 : 77.4;
+    const voltage = newPackType.includes("LFP") ? 350.0 : 400.0;
+    
+    // Optimistic UI Update
+    const newVehicle: Vehicle = {
+      vin: newVin,
+      packType: newPackType,
+      soc: 100.0,
+      soh: 100.0,
+      cycles: 0,
+      packVoltage: voltage,
+      packCurrent: 0.0,
+      maxTemp: 25.0,
+      minTemp: 25.0,
+      deltaV: 0.005,
+      score: 0.01,
+      status: "NOMINAL",
+      cells: GENERATE_CELLS(voltage / (newPackType.includes("LFP") ? 108 : 96), 0.005),
+      history: [],
+      shap: [],
+    };
+    setFleet((prev) => [newVehicle, ...prev]);
+    setIsModalOpen(false);
+
+    try {
+      await fetch("/api/vehicles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vin: newVin,
+          fleet_id: newFleetId,
+          pack_type: newPackType,
+          usable_capacity_kwh: capacity,
+          nominal_voltage: voltage,
+        }),
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDecommission = async (vinToDelete: string) => {
+    setFleet((prev) => prev.filter(v => v.vin !== vinToDelete));
+    if (selectedVin === vinToDelete && fleet.length > 1) {
+      setSelectedVin(fleet.find(v => v.vin !== vinToDelete)?.vin || fleet[0].vin);
+    }
+    
+    try {
+      await fetch(`/api/vehicles?vin=${vinToDelete}`, { method: "DELETE" });
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
+    let intervalId: NodeJS.Timeout;
+
+    const fetchFleet = async () => {
+      try {
+        const res = await fetch("/api/fleet");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.vehicles && data.vehicles.length > 0) {
+            // Map DynamoDB payload back to expected frontend state
+            const mappedLive = data.vehicles.map((v: any) => {
+              // Ensure we don't break UI with missing fields
+              const latestV = v.pack_voltage ?? 400.0;
+              const isLFP = v.pack_type?.includes("LFP") || false;
+              
+              return {
+                vin: v.vehicle_id || v.vin,
+                packType: v.pack_type || "NMC-811 / 96S2P",
+                soc: v.soc ?? 100,
+                soh: 100.0, // Calculated separately
+                cycles: 0,
+                packVoltage: latestV,
+                packCurrent: v.pack_current ?? 0,
+                maxTemp: v.pack_temp ?? 25,
+                minTemp: (v.pack_temp ?? 25) - (v.cell_voltage_delta ?? 0) * 10, // Approx
+                deltaV: v.cell_voltage_delta ?? 0,
+                score: v.anomaly_score ?? 0,
+                status: v.status || "NOMINAL",
+                cells: GENERATE_CELLS(latestV / (isLFP ? 108 : 96), v.cell_voltage_delta ?? 0),
+                history: (v.recent_history || []).map((h: any) => ({
+                  t: h.timestamp ? new Date(h.timestamp).toLocaleTimeString() : "00:00",
+                  v: h.voltage ?? latestV,
+                  a: v.pack_current ?? 0,
+                  temp: h.temp ?? 25
+                })),
+                shap: (v.shap_drivers || []).map((s: any) => ({
+                  feature: s.feature,
+                  impact: s.attribution,
+                  base: s.baseline_val,
+                  obs: s.current_val
+                }))
+              };
+            });
+            setFleet(mappedLive);
+          }
+        }
+      } catch (e) {
+        console.error("Polling failed, falling back to mock seed data", e);
+      }
+    };
+
+    fetchFleet();
+    intervalId = setInterval(fetchFleet, 2000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const v = useMemo(
@@ -183,9 +317,9 @@ export default function SCADAConsole() {
   return (
     <div style={{ height: "100vh", width: "100vw", backgroundColor: "#0B0C0E", color: "#F3F4F6", display: "flex", flexDirection: "column", fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", overflow: "hidden" }}>
       {/* 1. SCADA Header Bar */}
-      <header style={{ height: "36px", borderBottom: "1px solid #242933", backgroundColor: "#111317", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+      <header style={{ height: "48px", borderBottom: "1px solid #242933", backgroundColor: "#111317", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <span style={{ fontWeight: 800, letterSpacing: "0.05em", color: "#F3F4F6" }}>ΩHMNIC // BMS-RTX</span>
+          <span style={{ fontWeight: 800, letterSpacing: "0.05em", color: "#F3F4F6", fontSize: "14px" }}>ΩHMNIC // BMS-RTX</span>
           <span style={{ color: "#6B7280" }}>|</span>
           <span style={{ color: "#9CA3AF" }}>PIPELINE: SQS.FIFO &rarr; LAMBDA &rarr; DYNAMODB</span>
         </div>
@@ -196,6 +330,11 @@ export default function SCADAConsole() {
             <span style={{ width: "6px", height: "6px", backgroundColor: "#10B981" }} />
             LINK: SYNCHRONIZED
           </span>
+          <div style={{ width: "1px", height: "24px", backgroundColor: "#242933", margin: "0 8px" }} />
+          <OrganizationSwitcher 
+            appearance={{ elements: { organizationSwitcherTrigger: "text-[#F3F4F6]" } }}
+          />
+          <UserButton />
         </div>
       </header>
 
@@ -205,19 +344,23 @@ export default function SCADAConsole() {
         {/* LEFT COLUMN: High-Density Telemetry Matrix */}
         <aside style={{ borderRight: "1px solid #242933", backgroundColor: "#0E1014", display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {/* Table Controls */}
-          <div style={{ height: "30px", borderBottom: "1px solid #242933", padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#14171D", color: "#9CA3AF", fontSize: "10px" }}>
+          <div style={{ height: "40px", borderBottom: "1px solid #242933", padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#14171D", color: "#9CA3AF", fontSize: "10px" }}>
             <span>FLEET STATUS ({fleet.length} MONITORED UNITS)</span>
-            <span style={{ color: "#6B7280" }}>SORT: SEVERITY DESC</span>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => setIsModalOpen(true)} style={{ display: "flex", alignItems: "center", gap: "4px", backgroundColor: "#10B981", color: "#000", padding: "4px 8px", fontWeight: "bold", border: "none", cursor: "pointer" }}>
+                <Plus size={12} /> ONBOARD ASSET
+              </button>
+            </div>
           </div>
 
           {/* Table Header */}
-          <div style={{ display: "grid", gridTemplateColumns: "110px 55px 70px 65px 75px 1fr", padding: "6px 12px", borderBottom: "1px solid #242933", color: "#6B7280", fontSize: "10px", fontWeight: 700 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "110px 55px 70px 65px 75px 24px", padding: "6px 12px", borderBottom: "1px solid #242933", color: "#6B7280", fontSize: "10px", fontWeight: 700 }}>
             <div>VIN</div>
             <div style={{ textAlign: "right" }}>SOC</div>
             <div style={{ textAlign: "right" }}>V_PACK</div>
             <div style={{ textAlign: "right" }}>T_MAX</div>
             <div style={{ textAlign: "right" }}>ΔV_CELL</div>
-            <div style={{ textAlign: "right" }}>SCORE</div>
+            <div></div>
           </div>
 
           {/* Table Rows */}
@@ -230,19 +373,17 @@ export default function SCADAConsole() {
               return (
                 <div
                   key={item.vin}
-                  onClick={() => setSelectedVin(item.vin)}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "110px 55px 70px 65px 75px 1fr",
+                    gridTemplateColumns: "110px 55px 70px 65px 75px 24px",
                     padding: "8px 12px",
                     borderBottom: "1px solid #191D24",
                     backgroundColor: isSelected ? "#1F232B" : "transparent",
-                    cursor: "pointer",
                     alignItems: "center",
                     borderLeft: isSelected ? "2px solid #06B6D4" : "2px solid transparent",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <div onClick={() => setSelectedVin(item.vin)} style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
                     <span style={{
                       width: "6px",
                       height: "6px",
@@ -250,14 +391,16 @@ export default function SCADAConsole() {
                     }} />
                     <span style={{ color: isSelected ? "#F3F4F6" : "#D1D5DB", fontWeight: 600 }}>{item.vin}</span>
                   </div>
-                  <div style={{ textAlign: "right", color: "#9CA3AF" }}>{item.soc}%</div>
-                  <div style={{ textAlign: "right", color: "#D1D5DB" }}>{item.packVoltage.toFixed(1)}V</div>
-                  <div style={{ textAlign: "right", color: item.maxTemp > 50 ? "#ff4876" : "#9CA3AF" }}>{item.maxTemp}°C</div>
-                  <div style={{ textAlign: "right", color: item.deltaV > 0.1 ? "#ff4876" : item.deltaV > 0.03 ? "#F5A623" : "#10B981", fontWeight: 700 }}>
+                  <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: "#9CA3AF", cursor: "pointer" }}>{item.soc}%</div>
+                  <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: "#D1D5DB", cursor: "pointer" }}>{item.packVoltage.toFixed(1)}V</div>
+                  <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: item.maxTemp > 50 ? "#ff4876" : "#9CA3AF", cursor: "pointer" }}>{item.maxTemp}°C</div>
+                  <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: item.deltaV > 0.1 ? "#ff4876" : item.deltaV > 0.03 ? "#F5A623" : "#10B981", fontWeight: 700, cursor: "pointer" }}>
                     {item.deltaV.toFixed(3)}
                   </div>
-                  <div style={{ textAlign: "right", color: isFault ? "#ff4876" : "#6B7280", fontWeight: 700 }}>
-                    {item.score.toFixed(3)}
+                  <div style={{ textAlign: "right" }}>
+                    <button onClick={() => handleDecommission(item.vin)} style={{ backgroundColor: "transparent", border: "none", color: "#F43F5E", cursor: "pointer" }}>
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 </div>
               );
@@ -294,7 +437,7 @@ export default function SCADAConsole() {
 
             {/* Sub-tab Navigation */}
             <div style={{ display: "flex", border: "1px solid #242933" }}>
-              {(["CELLS", "SIGNALS", "SHAP"] as const).map((tab) => (
+              {(["3D", "CELLS", "SIGNALS", "SHAP", "TRIAGE"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -318,9 +461,19 @@ export default function SCADAConsole() {
           {/* Tab Content Area */}
           <div style={{ flex: 1, padding: "20px", overflowY: "auto" }}>
 
+            {/* TAB 0: 3D Visualization */}
+            {activeTab === "3D" && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} style={{ display: "flex", flexDirection: "column", gap: "16px", height: "100%" }}>
+                <BatteryPackCanvas cells={v.cells} status={v.status} />
+                <div style={{ color: "#9CA3AF", fontSize: "10px", backgroundColor: "#111317", padding: "12px", border: "1px solid #242933" }}>
+                  INTERACTIVE MODULE VISUALIZER: SCROLL TO ZOOM, DRAG TO ROTATE. RED MODULES INDICATE &gt;50mV DEVIATION FROM PACK MEAN OR CRITICAL THERMAL EVENT.
+                </div>
+              </motion.div>
+            )}
+
             {/* TAB 1: 24-Cell Series Voltage Ladder */}
             {activeTab === "CELLS" && (
-              <div>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", color: "#9CA3AF" }}>
                   <span>PACK CELL VOLTAGE MAP (24-SERIES REPRESENTATIVE SAMPLE)</span>
                   <span>ΔV: <strong style={{ color: v.deltaV > 0.1 ? "#ff4876" : "#10B981" }}>{v.deltaV.toFixed(3)} V</strong></span>
@@ -353,28 +506,32 @@ export default function SCADAConsole() {
                 {/* Instantaneous Sensor Readouts */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", borderTop: "1px solid #242933", paddingTop: "16px" }}>
                   <div style={{ backgroundColor: "#111317", border: "1px solid #242933", padding: "10px" }}>
-                    <div style={{ color: "#6B7280", fontSize: "10px" }}>TOTAL VOLTAGE</div>
-                    <div style={{ fontSize: "16px", fontWeight: 700, color: "#F3F4F6", marginTop: "4px" }}>{v.packVoltage} V</div>
+                    <div style={{ color: "#6B7280", fontSize: "10px" }}>STATE OF HEALTH (SOH)</div>
+                    <div style={{ fontSize: "16px", fontWeight: 700, color: v.soh < 80 ? "#ff4876" : "#F3F4F6", marginTop: "4px" }}>{v.soh.toFixed(1)} %</div>
+                    <div style={{ fontSize: "10px", color: "#9CA3AF", marginTop: "4px" }}>{v.cycles} DCFC CYCLES</div>
                   </div>
                   <div style={{ backgroundColor: "#111317", border: "1px solid #242933", padding: "10px" }}>
                     <div style={{ color: "#6B7280", fontSize: "10px" }}>CURRENT (NET)</div>
                     <div style={{ fontSize: "16px", fontWeight: 700, color: v.packCurrent > 150 ? "#ff4876" : "#F3F4F6", marginTop: "4px" }}>{v.packCurrent} A</div>
+                    <div style={{ fontSize: "10px", color: "#9CA3AF", marginTop: "4px" }}>TOTAL VOLTAGE: {v.packVoltage} V</div>
                   </div>
                   <div style={{ backgroundColor: "#111317", border: "1px solid #242933", padding: "10px" }}>
                     <div style={{ color: "#6B7280", fontSize: "10px" }}>THERMAL GRADIENT</div>
-                    <div style={{ fontSize: "16px", fontWeight: 700, color: "#F3F4F6", marginTop: "4px" }}>{(v.maxTemp - v.minTemp).toFixed(1)} °C</div>
+                    <div style={{ fontSize: "16px", fontWeight: 700, color: (v.maxTemp - v.minTemp) > 5 ? "#ff4876" : "#F3F4F6", marginTop: "4px" }}>{(v.maxTemp - v.minTemp).toFixed(1)} °C</div>
+                    <div style={{ fontSize: "10px", color: "#9CA3AF", marginTop: "4px" }}>MAX: {v.maxTemp} °C</div>
                   </div>
                   <div style={{ backgroundColor: "#111317", border: "1px solid #242933", padding: "10px" }}>
                     <div style={{ color: "#6B7280", fontSize: "10px" }}>ANOMALY PROBABILITY</div>
                     <div style={{ fontSize: "16px", fontWeight: 700, color: v.score > 0.6 ? "#ff4876" : "#10B981", marginTop: "4px" }}>{(v.score * 100).toFixed(1)}%</div>
+                    <div style={{ fontSize: "10px", color: "#9CA3AF", marginTop: "4px" }}>SCORE: {v.score.toFixed(3)}</div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {/* TAB 2: Stepped Telemetry Waveforms */}
             {activeTab === "SIGNALS" && (
-              <div>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
                 <div style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", color: "#9CA3AF" }}>
                   <span>SYNCHRONIZED BUS SIGNALS (STEPPED SAMPLING)</span>
                   <div style={{ display: "flex", gap: "12px" }}>
@@ -394,12 +551,12 @@ export default function SCADAConsole() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {/* TAB 3: Mathematical Explainability (Kernel SHAP) */}
             {activeTab === "SHAP" && (
-              <div>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
                 <div style={{ marginBottom: "12px", color: "#9CA3AF" }}>
                   KERNEL SHAP FEATURE ATTRIBUTION (REFERENCE BASELINE: 50 NOMINAL SAMPLES)
                 </div>
@@ -442,7 +599,58 @@ export default function SCADAConsole() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </motion.div>
+            )}
+
+            {/* TAB 4: Service Triage Ticket */}
+            {activeTab === "TRIAGE" && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} style={{ backgroundColor: "#111317", border: `1px solid ${v.status === 'FAULT' ? '#ff4876' : v.status === 'WARN' ? '#F5A623' : '#242933'}`, padding: "24px" }}>
+                <h3 style={{ fontSize: "16px", fontWeight: 800, color: v.status === 'FAULT' ? '#ff4876' : '#F3F4F6', marginBottom: "8px" }}>
+                  {v.status === 'FAULT' ? 'CRITICAL SERVICE TICKET REQUIRED' : v.status === 'WARN' ? 'WARNING ADVISORY GENERATED' : 'NO ACTION REQUIRED - ALL SYSTEMS NOMINAL'}
+                </h3>
+                <div style={{ color: "#9CA3AF", marginBottom: "20px" }}>
+                  Automated triage diagnostic based on isolation forest anomaly inference and thermodynamic evaluation.
+                </div>
+                
+                {v.status !== 'NOMINAL' && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                    <div style={{ padding: "16px", backgroundColor: "#0B0C0E", border: "1px solid #242933" }}>
+                      <div style={{ color: "#6B7280", fontSize: "10px", marginBottom: "8px" }}>DETECTED ANOMALIES</div>
+                      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px", color: "#F3F4F6" }}>
+                        {(v.maxTemp - v.minTemp) > 5 && (
+                          <li style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ color: "#ff4876" }}>■</span> Module thermal gradient {(v.maxTemp - v.minTemp).toFixed(1)}°C exceeds 5°C threshold.
+                          </li>
+                        )}
+                        {v.deltaV > 0.05 && (
+                          <li style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ color: "#F5A623" }}>■</span> Cell voltage divergence {v.deltaV.toFixed(3)}V exceeds 50mV safety limit.
+                          </li>
+                        )}
+                        {v.score > 0.65 && (
+                          <li style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ color: "#ff4876" }}>■</span> AI Anomaly Score {(v.score*100).toFixed(1)}% indicates high probability of failure mode.
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                    <div style={{ padding: "16px", backgroundColor: "#0B0C0E", border: "1px solid #242933" }}>
+                      <div style={{ color: "#6B7280", fontSize: "10px", marginBottom: "8px" }}>RECOMMENDED TRIAGE ACTION</div>
+                      {v.status === 'FAULT' ? (
+                        <div style={{ color: "#ff4876", fontWeight: 700 }}>
+                          ISOLATE PACK; CRITICAL MICRO-SHORT RISK DETECTED.<br /><br />
+                          <span style={{ color: "#F3F4F6", fontWeight: 400 }}>Schedule immediate physical inspection of Module 2. Depower the vehicle HV bus.</span>
+                        </div>
+                      ) : (
+                        <div style={{ color: "#F5A623", fontWeight: 700 }}>
+                          SCHEDULE ACTIVE CELL BALANCING.<br /><br />
+                          <span style={{ color: "#F3F4F6", fontWeight: 400 }}>Perform extended grid-connected charge cycle to align lower quartile cells.</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
             )}
 
           </div>
@@ -455,6 +663,48 @@ export default function SCADAConsole() {
 
         </main>
       </div>
+
+      <AnimatePresence>
+        {isModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              style={{ backgroundColor: "#111317", border: "1px solid #242933", width: "400px", padding: "20px", color: "#F3F4F6", display: "flex", flexDirection: "column", gap: "16px" }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 style={{ fontSize: "14px", fontWeight: "bold" }}>ONBOARD NEW ASSET</h3>
+                <button onClick={() => setIsModalOpen(false)} style={{ background: "none", border: "none", color: "#6B7280", cursor: "pointer" }}><X size={16} /></button>
+              </div>
+              <form onSubmit={handleOnboard} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "10px", color: "#9CA3AF" }}>VIN (17 CHARACTERS)</label>
+                  <input required value={newVin} onChange={e => setNewVin(e.target.value)} style={{ backgroundColor: "#0B0C0E", border: "1px solid #242933", padding: "8px", color: "#F3F4F6", fontFamily: "inherit", fontSize: "12px" }} placeholder="VIN-EV-XXXX" />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "10px", color: "#9CA3AF" }}>FLEET ID</label>
+                  <input required value={newFleetId} onChange={e => setNewFleetId(e.target.value)} style={{ backgroundColor: "#0B0C0E", border: "1px solid #242933", padding: "8px", color: "#F3F4F6", fontFamily: "inherit", fontSize: "12px" }} placeholder="e.g. DEPOT-NORTH" />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "10px", color: "#9CA3AF" }}>PACK CHEMISTRY</label>
+                  <select value={newPackType} onChange={e => setNewPackType(e.target.value)} style={{ backgroundColor: "#0B0C0E", border: "1px solid #242933", padding: "8px", color: "#F3F4F6", fontFamily: "inherit", fontSize: "12px" }}>
+                    <option value="NMC-811 / 96S2P">NMC-811 (400V Class)</option>
+                    <option value="LFP-Blade / 108S">LFP-Blade (350V Class)</option>
+                    <option value="NCA / 84S">NCA (350V Class)</option>
+                  </select>
+                </div>
+                <button type="submit" style={{ backgroundColor: "#10B981", color: "#000", border: "none", padding: "10px", fontWeight: "bold", cursor: "pointer", marginTop: "8px" }}>COMMISSION VIN</button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
