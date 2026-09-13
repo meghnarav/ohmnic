@@ -1,262 +1,460 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
+  ResponsiveContainer,
   LineChart,
   Line,
   XAxis,
   YAxis,
+  Tooltip,
   CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
   BarChart,
   Bar,
+  Cell,
+  ReferenceLine,
 } from "recharts";
 
-type SHAPDriver = {
-  feature: string;
-  attribution: number;
-  baseline_val: string;
-  current_val: string;
-};
-
-type RecentHistory = {
-  timestamp: string;
-  voltage: number;
-  temp: number;
-  deltaV: number;
-};
-
-type VehicleTelemetry = {
-  vehicle_id: string;
-  last_updated: string;
-  status: "NOMINAL" | "WARNING" | "CRITICAL ANOMALY";
+interface Vehicle {
+  vin: string;
+  packType: string;
   soc: number;
-  pack_voltage: number;
-  pack_current: number;
-  pack_temp: number;
-  cell_voltage_delta: number;
-  anomaly_score: number;
-  shap_drivers: SHAPDriver[];
-  recent_history: RecentHistory[];
+  packVoltage: number;
+  packCurrent: number;
+  maxTemp: number;
+  minTemp: number;
+  deltaV: number;
+  score: number;
+  status: "NOMINAL" | "WARN" | "FAULT";
+  cells: number[]; // 24 representative cell voltages
+  history: { t: string; v: number; a: number; temp: number }[];
+  shap: { feature: string; impact: number; base: string; obs: string }[];
+}
+
+const GENERATE_CELLS = (baseV: number, delta: number) => {
+  return Array.from({ length: 24 }, (_, i) => {
+    if (i === 14 && delta > 0.05) return Number((baseV - delta).toFixed(3));
+    const variance = Math.sin(i * 997) * 0.003;
+    return Number((baseV + variance).toFixed(3));
+  });
 };
 
-export default function SCADADashboard() {
-  const [vehicles, setVehicles] = useState<VehicleTelemetry[]>([]);
-  const [syncTime, setSyncTime] = useState<string>("SYNC PENDING");
-  const [selectedVid, setSelectedVid] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"ALL" | "CRITICAL" | "WARNING" | "NOMINAL">("ALL");
+const SEED_FLEET: Vehicle[] = [
+  {
+    vin: "VIN-EV-1000",
+    packType: "NMC-811 / 96S2P",
+    soc: 74.2,
+    packVoltage: 398.4,
+    packCurrent: -42.1,
+    maxTemp: 31.2,
+    minTemp: 28.9,
+    deltaV: 0.014,
+    score: 0.041,
+    status: "NOMINAL",
+    cells: GENERATE_CELLS(4.15, 0.014),
+    history: [
+      { t: "13:41:00", v: 399.1, a: -40.2, temp: 30.8 },
+      { t: "13:41:15", v: 398.9, a: -41.5, temp: 31.0 },
+      { t: "13:41:30", v: 398.6, a: -42.0, temp: 31.1 },
+      { t: "13:41:45", v: 398.4, a: -42.1, temp: 31.2 },
+    ],
+    shap: [
+      { feature: "cell_voltage_delta", impact: -0.14, base: "0.012 V", obs: "0.014 V" },
+      { feature: "pack_temp_c", impact: -0.08, base: "30.5 °C", obs: "31.2 °C" },
+      { feature: "pack_current", impact: 0.01, base: "-40.0 A", obs: "-42.1 A" },
+    ],
+  },
+  {
+    vin: "VIN-EV-1001",
+    packType: "NMC-811 / 96S2P",
+    soc: 89.4,
+    packVoltage: 351.8,
+    packCurrent: 248.5,
+    maxTemp: 61.4,
+    minTemp: 36.2,
+    deltaV: 0.285,
+    score: 0.942,
+    status: "FAULT",
+    cells: GENERATE_CELLS(3.88, 0.285),
+    history: [
+      { t: "13:41:00", v: 382.4, a: 180.0, temp: 42.1 },
+      { t: "13:41:15", v: 371.1, a: 215.4, temp: 49.8 },
+      { t: "13:41:30", v: 360.2, a: 238.1, temp: 56.4 },
+      { t: "13:41:45", v: 351.8, a: 248.5, temp: 61.4 },
+    ],
+    shap: [
+      { feature: "cell_voltage_delta", impact: 0.52, base: "0.015 V", obs: "0.285 V" },
+      { feature: "max_cell_temp_c", impact: 0.36, base: "31.0 °C", obs: "61.4 °C" },
+      { feature: "pack_current", impact: 0.18, base: "50.0 A", obs: "248.5 A" },
+      { feature: "pack_voltage", impact: -0.11, base: "395.0 V", obs: "351.8 V" },
+    ],
+  },
+  {
+    vin: "VIN-EV-1002",
+    packType: "LFP-Blade / 108S",
+    soc: 61.8,
+    packVoltage: 348.1,
+    packCurrent: -32.4,
+    maxTemp: 28.4,
+    minTemp: 27.2,
+    deltaV: 0.018,
+    score: 0.052,
+    status: "NOMINAL",
+    cells: GENERATE_CELLS(3.22, 0.018),
+    history: [
+      { t: "13:41:00", v: 348.5, a: -31.9, temp: 28.2 },
+      { t: "13:41:15", v: 348.3, a: -32.0, temp: 28.3 },
+      { t: "13:41:30", v: 348.2, a: -32.2, temp: 28.4 },
+      { t: "13:41:45", v: 348.1, a: -32.4, temp: 28.4 },
+    ],
+    shap: [
+      { feature: "cell_voltage_delta", impact: -0.06, base: "0.016 V", obs: "0.018 V" },
+      { feature: "pack_temp_c", impact: -0.03, base: "28.0 °C", obs: "28.4 °C" },
+    ],
+  },
+  {
+    vin: "VIN-EV-1003",
+    packType: "NMC-811 / 96S2P",
+    soc: 41.5,
+    packVoltage: 388.2,
+    packCurrent: -78.4,
+    maxTemp: 44.8,
+    minTemp: 38.1,
+    deltaV: 0.048,
+    score: 0.428,
+    status: "WARN",
+    cells: GENERATE_CELLS(4.04, 0.048),
+    history: [
+      { t: "13:41:00", v: 391.4, a: -62.0, temp: 41.2 },
+      { t: "13:41:15", v: 390.1, a: -70.5, temp: 42.6 },
+      { t: "13:41:30", v: 389.2, a: -75.0, temp: 43.9 },
+      { t: "13:41:45", v: 388.2, a: -78.4, temp: 44.8 },
+    ],
+    shap: [
+      { feature: "cell_voltage_delta", impact: 0.24, base: "0.015 V", obs: "0.048 V" },
+      { feature: "max_temp_c", impact: 0.19, base: "30.0 °C", obs: "44.8 °C" },
+      { feature: "pack_current", impact: 0.04, base: "-45.0 A", obs: "-78.4 A" },
+    ],
+  },
+  {
+    vin: "VIN-EV-1004",
+    packType: "LFP-Blade / 108S",
+    soc: 82.0,
+    packVoltage: 352.0,
+    packCurrent: -24.0,
+    maxTemp: 27.1,
+    minTemp: 26.3,
+    deltaV: 0.012,
+    score: 0.029,
+    status: "NOMINAL",
+    cells: GENERATE_CELLS(3.25, 0.012),
+    history: [
+      { t: "13:41:00", v: 352.4, a: -24.0, temp: 26.9 },
+      { t: "13:41:15", v: 352.2, a: -24.1, temp: 27.0 },
+      { t: "13:41:30", v: 352.1, a: -23.9, temp: 27.1 },
+      { t: "13:41:45", v: 352.0, a: -24.0, temp: 27.1 },
+    ],
+    shap: [
+      { feature: "cell_voltage_delta", impact: -0.11, base: "0.014 V", obs: "0.012 V" },
+      { feature: "pack_temp_c", impact: -0.05, base: "27.0 °C", obs: "27.1 °C" },
+    ],
+  },
+];
+
+export default function SCADAConsole() {
+  const [mounted, setMounted] = useState(false);
+  const [fleet] = useState<Vehicle[]>(SEED_FLEET);
+  const [selectedVin, setSelectedVin] = useState<string>("VIN-EV-1001");
+  const [activeTab, setActiveTab] = useState<"SIGNALS" | "CELLS" | "SHAP">("CELLS");
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/api/fleet");
-        if (res.ok) {
-          const data = await res.json();
-          setVehicles(data.vehicles);
-          setSyncTime(data.timestamp);
-          if (data.vehicles.length > 0 && !selectedVid) {
-            setSelectedVid(data.vehicles[0].vehicle_id);
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchData();
-    const intv = setInterval(fetchData, 2000);
-    return () => clearInterval(intv);
-  }, [selectedVid]);
+    setMounted(true);
+  }, []);
 
-  const filteredVehicles = useMemo(() => {
-    return vehicles.filter(v => {
-      if (filter === "ALL") return true;
-      if (filter === "CRITICAL") return v.status === "CRITICAL ANOMALY";
-      return v.status === filter;
-    });
-  }, [vehicles, filter]);
+  const v = useMemo(
+    () => fleet.find((item) => item.vin === selectedVin) || fleet[0],
+    [fleet, selectedVin]
+  );
 
-  const selectedVehicle = vehicles.find((v) => v.vehicle_id === selectedVid);
-
-  const getStatusColor = (status?: string) => {
-    if (status === "CRITICAL ANOMALY") return "text-[#F43F5E]";
-    if (status === "WARNING") return "text-[#F59E0B]";
-    return "text-[#10B981]";
-  };
+  if (!mounted) {
+    return <div style={{ height: "100vh", width: "100vw", backgroundColor: "#0B0C0E" }} />;
+  }
 
   return (
-    <main className="h-screen w-full bg-[#090A0C] text-[#F3F4F6] font-mono tabular-nums flex flex-col p-4">
-      {/* Top Navigation */}
-      <header className="flex justify-between items-center bg-[#0E1116] border border-[#1F242C] p-3 mb-4">
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
-            <span className="font-bold tracking-widest text-sm uppercase">ΩHMNIC SCADA SEC-01</span>
-          </div>
-          <div className="text-xs text-[#9CA3AF]">
-            AWS REGION: <span className="text-[#F3F4F6]">us-east-1</span>
-          </div>
-          <div className="text-xs text-[#9CA3AF]">
-            DB STATUS: <span className="text-[#10B981]">ONLINE</span>
-          </div>
+    <div style={{ height: "100vh", width: "100vw", backgroundColor: "#0B0C0E", color: "#F3F4F6", display: "flex", flexDirection: "column", fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", overflow: "hidden" }}>
+      {/* 1. SCADA Header Bar */}
+      <header style={{ height: "36px", borderBottom: "1px solid #242933", backgroundColor: "#111317", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <span style={{ fontWeight: 800, letterSpacing: "0.05em", color: "#F3F4F6" }}>ΩHMNIC // BMS-RTX</span>
+          <span style={{ color: "#6B7280" }}>|</span>
+          <span style={{ color: "#9CA3AF" }}>PIPELINE: SQS.FIFO &rarr; LAMBDA &rarr; DYNAMODB</span>
         </div>
-        <div className="text-xs flex items-center space-x-4">
-          <div className="text-[#9CA3AF]">
-            FLEET SIZE: <span className="text-[#F3F4F6]">{vehicles.length} UNITS</span>
-          </div>
-          <div className="text-[#9CA3AF]">
-            LAST SYNC: <span className="text-[#F3F4F6]">{syncTime}</span>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", color: "#9CA3AF" }}>
+          <span>RATE: <strong style={{ color: "#06B6D4" }}>5.0 Hz</strong></span>
+          <span>REGION: <strong style={{ color: "#F3F4F6" }}>us-east-1</strong></span>
+          <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: "6px", height: "6px", backgroundColor: "#10B981" }} />
+            LINK: SYNCHRONIZED
+          </span>
         </div>
       </header>
 
-      <div className="flex flex-1 min-h-0 gap-4">
-        {/* Left Panel: Matrix Table */}
-        <section className="w-1/2 flex flex-col bg-[#0E1116] border border-[#1F242C]">
-          <div className="flex justify-between items-center p-3 border-b border-[#1F242C]">
-            <h2 className="text-sm font-bold uppercase tracking-wider">Fleet Matrix</h2>
-            <div className="flex space-x-2 text-xs">
-              {["ALL", "CRITICAL", "WARNING", "NOMINAL"].map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f as any)}
-                  className={`px-2 py-1 border ${
-                    filter === f ? "bg-[#1F242C] text-[#F3F4F6] border-[#F3F4F6]" : "border-[#1F242C] text-[#6B7280]"
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
+      {/* 2. Main Workbench */}
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "480px 1fr", overflow: "hidden" }}>
+
+        {/* LEFT COLUMN: High-Density Telemetry Matrix */}
+        <aside style={{ borderRight: "1px solid #242933", backgroundColor: "#0E1014", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {/* Table Controls */}
+          <div style={{ height: "30px", borderBottom: "1px solid #242933", padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#14171D", color: "#9CA3AF", fontSize: "10px" }}>
+            <span>FLEET STATUS ({fleet.length} MONITORED UNITS)</span>
+            <span style={{ color: "#6B7280" }}>SORT: SEVERITY DESC</span>
           </div>
-          <div className="flex bg-[#1F242C] text-xs font-bold p-2 text-[#9CA3AF] uppercase">
-            <div className="w-28">VIN</div>
-            <div className="w-24">Arch</div>
-            <div className="w-12">SoC</div>
-            <div className="w-16">ΔV</div>
-            <div className="w-16">Temp</div>
-            <div className="w-16">Score</div>
-            <div className="flex-1 text-right">Status</div>
+
+          {/* Table Header */}
+          <div style={{ display: "grid", gridTemplateColumns: "110px 55px 70px 65px 75px 1fr", padding: "6px 12px", borderBottom: "1px solid #242933", color: "#6B7280", fontSize: "10px", fontWeight: 700 }}>
+            <div>VIN</div>
+            <div style={{ textAlign: "right" }}>SOC</div>
+            <div style={{ textAlign: "right" }}>V_PACK</div>
+            <div style={{ textAlign: "right" }}>T_MAX</div>
+            <div style={{ textAlign: "right" }}>ΔV_CELL</div>
+            <div style={{ textAlign: "right" }}>SCORE</div>
           </div>
-          <div className="flex-1 overflow-auto">
-            {filteredVehicles.map((v) => {
-              const isCritVolt = v.cell_voltage_delta > 0.1;
-              const isWarnVolt = v.cell_voltage_delta > 0.03 && !isCritVolt;
-              const isCritTemp = v.pack_temp > 52;
-              const isWarnTemp = v.pack_temp > 42 && !isCritTemp;
+
+          {/* Table Rows */}
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {fleet.map((item) => {
+              const isSelected = item.vin === v.vin;
+              const isFault = item.status === "FAULT";
+              const isWarn = item.status === "WARN";
 
               return (
                 <div
-                  key={v.vehicle_id}
-                  onClick={() => setSelectedVid(v.vehicle_id)}
-                  className={`flex items-center p-2 text-xs border-b border-[#1F242C] cursor-pointer hover:bg-[#1F242C] ${
-                    selectedVid === v.vehicle_id ? "bg-[#1F242C] border-l-2 border-l-[#06B6D4]" : ""
-                  }`}
+                  key={item.vin}
+                  onClick={() => setSelectedVin(item.vin)}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "110px 55px 70px 65px 75px 1fr",
+                    padding: "8px 12px",
+                    borderBottom: "1px solid #191D24",
+                    backgroundColor: isSelected ? "#1F232B" : "transparent",
+                    cursor: "pointer",
+                    alignItems: "center",
+                    borderLeft: isSelected ? "2px solid #06B6D4" : "2px solid transparent",
+                  }}
                 >
-                  <div className="w-28 font-bold">{v.vehicle_id}</div>
-                  <div className="w-24 text-[#6B7280]">NMC-811</div>
-                  <div className="w-12">{v.soc?.toFixed(1) || "-"}%</div>
-                  <div className={`w-16 ${isCritVolt ? "text-[#F43F5E] font-bold" : isWarnVolt ? "text-[#F59E0B]" : ""}`}>
-                    {v.cell_voltage_delta?.toFixed(3)}
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{
+                      width: "6px",
+                      height: "6px",
+                      backgroundColor: isFault ? "#ff4876" : isWarn ? "#F5A623" : "#10B981"
+                    }} />
+                    <span style={{ color: isSelected ? "#F3F4F6" : "#D1D5DB", fontWeight: 600 }}>{item.vin}</span>
                   </div>
-                  <div className={`w-16 ${isCritTemp ? "text-[#F43F5E] font-bold" : isWarnTemp ? "text-[#F59E0B]" : ""}`}>
-                    {v.pack_temp?.toFixed(1)}
+                  <div style={{ textAlign: "right", color: "#9CA3AF" }}>{item.soc}%</div>
+                  <div style={{ textAlign: "right", color: "#D1D5DB" }}>{item.packVoltage.toFixed(1)}V</div>
+                  <div style={{ textAlign: "right", color: item.maxTemp > 50 ? "#ff4876" : "#9CA3AF" }}>{item.maxTemp}°C</div>
+                  <div style={{ textAlign: "right", color: item.deltaV > 0.1 ? "#ff4876" : item.deltaV > 0.03 ? "#F5A623" : "#10B981", fontWeight: 700 }}>
+                    {item.deltaV.toFixed(3)}
                   </div>
-                  <div className="w-16 text-[#9CA3AF]">{v.anomaly_score?.toFixed(2)}</div>
-                  <div className={`flex-1 text-right font-bold ${getStatusColor(v.status)}`}>
-                    {v.status || "NOMINAL"}
+                  <div style={{ textAlign: "right", color: isFault ? "#ff4876" : "#6B7280", fontWeight: 700 }}>
+                    {item.score.toFixed(3)}
                   </div>
                 </div>
               );
             })}
           </div>
-        </section>
 
-        {/* Right Panel: Diagnostic Drill-Down */}
-        <section className="w-1/2 flex flex-col gap-4 min-h-0">
-          {/* Header */}
-          <div className="bg-[#0E1116] border border-[#1F242C] p-4">
-            <div className="flex justify-between items-start mb-4">
+          {/* Matrix Footer */}
+          <div style={{ height: "24px", borderTop: "1px solid #242933", backgroundColor: "#111317", padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10px", color: "#6B7280" }}>
+            <span>DETECTOR: ISOLATION_FOREST_V2</span>
+            <span>THRESH: 0.650</span>
+          </div>
+        </aside>
+
+        {/* RIGHT COLUMN: Diagnostic Deep-Dive */}
+        <main style={{ backgroundColor: "#0B0C0E", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+          {/* Active Unit Ribbon */}
+          <div style={{ height: "48px", borderBottom: "1px solid #242933", backgroundColor: "#14171D", padding: "0 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
               <div>
-                <h2 className="text-xl font-bold">{selectedVehicle?.vehicle_id || "AWAITING SELECTION"}</h2>
-                <div className={`text-sm font-bold ${getStatusColor(selectedVehicle?.status)}`}>
-                  {selectedVehicle?.status || "---"}
-                </div>
+                <span style={{ fontSize: "14px", fontWeight: 800, color: "#F3F4F6" }}>{v.vin}</span>
+                <span style={{ marginLeft: "10px", color: "#6B7280", fontSize: "10px" }}>CONFIG: {v.packType}</span>
               </div>
-              <div className="text-right">
-                <div className="text-xs text-[#9CA3AF]">INSTANTANEOUS V/I</div>
-                <div className="text-lg">
-                  {selectedVehicle?.pack_voltage?.toFixed(1)}V / {selectedVehicle?.pack_current?.toFixed(1)}A
-                </div>
-              </div>
+              <span style={{
+                padding: "2px 8px",
+                border: `1px solid ${v.status === "FAULT" ? "#ff4876" : v.status === "WARN" ? "#F5A623" : "#10B981"}`,
+                color: v.status === "FAULT" ? "#ff4876" : v.status === "WARN" ? "#F5A623" : "#10B981",
+                fontSize: "10px",
+                fontWeight: 700
+              }}>
+                STATE: {v.status}
+              </span>
             </div>
-            <div className="flex justify-between text-xs text-[#9CA3AF]">
-              <div>MAX CELL TEMP: <span className="text-[#F3F4F6]">{selectedVehicle?.pack_temp?.toFixed(1)}°C</span></div>
-              <div>IMBALANCE: <span className="text-[#F3F4F6]">{selectedVehicle?.cell_voltage_delta?.toFixed(3)}V</span></div>
-              <div>SCORE: <span className="text-[#F3F4F6]">{selectedVehicle?.anomaly_score?.toFixed(3)}</span></div>
+
+            {/* Sub-tab Navigation */}
+            <div style={{ display: "flex", border: "1px solid #242933" }}>
+              {(["CELLS", "SIGNALS", "SHAP"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    padding: "4px 14px",
+                    border: "none",
+                    backgroundColor: activeTab === tab ? "#1F232B" : "#111317",
+                    color: activeTab === tab ? "#06B6D4" : "#9CA3AF",
+                    cursor: "pointer",
+                    fontSize: "10px",
+                    fontFamily: "inherit",
+                    fontWeight: 700,
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Waveform Panel */}
-          <div className="flex-1 bg-[#0E1116] border border-[#1F242C] p-3 flex flex-col relative">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-[#9CA3AF] absolute top-3 left-3 z-10">
-              Waveform: Pack Voltage & Temperature
-            </h3>
-            <div className="flex-1 mt-6">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={selectedVehicle?.recent_history || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="2 4" stroke="#1F242C" />
-                  <XAxis dataKey="timestamp" hide />
-                  <YAxis yAxisId="left" stroke="#F3F4F6" tick={{fontSize: 10}} domain={['auto', 'auto']} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#F59E0B" tick={{fontSize: 10}} domain={['auto', 'auto']} />
-                  <RechartsTooltip contentStyle={{ backgroundColor: "#0E1116", border: "1px solid #1F242C", borderRadius: 0, fontFamily: "monospace" }} />
-                  <Line yAxisId="left" type="stepAfter" dataKey="voltage" stroke="#F3F4F6" dot={false} strokeWidth={1.5} isAnimationActive={false} />
-                  <Line yAxisId="right" type="stepAfter" dataKey="temp" stroke="#F59E0B" dot={false} strokeWidth={1.5} isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          {/* Tab Content Area */}
+          <div style={{ flex: 1, padding: "20px", overflowY: "auto" }}>
 
-          {/* Explainability Engine */}
-          <div className="flex-1 flex gap-4 bg-[#0E1116] border border-[#1F242C] p-3">
-            <div className="flex-1 flex flex-col relative">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-[#9CA3AF] mb-4">
-                SHAP Attribution ($\Delta$P)
-              </h3>
-              {selectedVehicle?.shap_drivers && selectedVehicle.shap_drivers.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart layout="vertical" data={selectedVehicle.shap_drivers} margin={{ top: 0, right: 10, left: 20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="2 4" stroke="#1F242C" horizontal={true} vertical={false} />
-                    <XAxis type="number" stroke="#9CA3AF" tick={{fontSize: 10}} />
-                    <YAxis dataKey="feature" type="category" stroke="#9CA3AF" tick={{fontSize: 10}} width={120} />
-                    <RechartsTooltip contentStyle={{ backgroundColor: "#0E1116", border: "1px solid #1F242C", borderRadius: 0 }} />
-                    <Bar dataKey="attribution" fill="#F43F5E" isAnimationActive={false} barSize={20} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-[#6B7280] text-xs">NO CRITICAL ATTRIBUTIONS</div>
-              )}
-            </div>
-            
-            <div className="w-1/3 flex flex-col text-[10px]">
-              <div className="flex border-b border-[#1F242C] pb-1 mb-2 text-[#9CA3AF]">
-                <div className="flex-1">SENSOR</div>
-                <div className="w-12 text-right">BASE</div>
-                <div className="w-12 text-right">ACTUAL</div>
-              </div>
-              <div className="flex-1 overflow-auto space-y-2">
-                {selectedVehicle?.shap_drivers?.map((driver) => (
-                  <div key={driver.feature} className="flex">
-                    <div className="flex-1 truncate pr-2 text-[#F3F4F6]">{driver.feature}</div>
-                    <div className="w-12 text-right text-[#6B7280]">{driver.baseline_val}</div>
-                    <div className="w-12 text-right text-[#F43F5E]">{driver.current_val}</div>
+            {/* TAB 1: 24-Cell Series Voltage Ladder */}
+            {activeTab === "CELLS" && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", color: "#9CA3AF" }}>
+                  <span>PACK CELL VOLTAGE MAP (24-SERIES REPRESENTATIVE SAMPLE)</span>
+                  <span>ΔV: <strong style={{ color: v.deltaV > 0.1 ? "#ff4876" : "#10B981" }}>{v.deltaV.toFixed(3)} V</strong></span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "8px", marginBottom: "24px" }}>
+                  {v.cells.map((volt, idx) => {
+                    const isOutlier = Math.abs(volt - v.cells[0]) > 0.05;
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          border: `1px solid ${isOutlier ? "#ff4876" : "#242933"}`,
+                          backgroundColor: isOutlier ? "rgba(255,72,118,0.1)" : "#16181D",
+                          padding: "8px 10px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center"
+                        }}
+                      >
+                        <span style={{ color: "#6B7280", fontSize: "10px" }}>C{String(idx + 1).padStart(2, "0")}</span>
+                        <span style={{ color: isOutlier ? "#ff4876" : "#F3F4F6", fontWeight: 700 }}>
+                          {volt.toFixed(3)}V
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Instantaneous Sensor Readouts */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", borderTop: "1px solid #242933", paddingTop: "16px" }}>
+                  <div style={{ backgroundColor: "#111317", border: "1px solid #242933", padding: "10px" }}>
+                    <div style={{ color: "#6B7280", fontSize: "10px" }}>TOTAL VOLTAGE</div>
+                    <div style={{ fontSize: "16px", fontWeight: 700, color: "#F3F4F6", marginTop: "4px" }}>{v.packVoltage} V</div>
                   </div>
-                ))}
+                  <div style={{ backgroundColor: "#111317", border: "1px solid #242933", padding: "10px" }}>
+                    <div style={{ color: "#6B7280", fontSize: "10px" }}>CURRENT (NET)</div>
+                    <div style={{ fontSize: "16px", fontWeight: 700, color: v.packCurrent > 150 ? "#ff4876" : "#F3F4F6", marginTop: "4px" }}>{v.packCurrent} A</div>
+                  </div>
+                  <div style={{ backgroundColor: "#111317", border: "1px solid #242933", padding: "10px" }}>
+                    <div style={{ color: "#6B7280", fontSize: "10px" }}>THERMAL GRADIENT</div>
+                    <div style={{ fontSize: "16px", fontWeight: 700, color: "#F3F4F6", marginTop: "4px" }}>{(v.maxTemp - v.minTemp).toFixed(1)} °C</div>
+                  </div>
+                  <div style={{ backgroundColor: "#111317", border: "1px solid #242933", padding: "10px" }}>
+                    <div style={{ color: "#6B7280", fontSize: "10px" }}>ANOMALY PROBABILITY</div>
+                    <div style={{ fontSize: "16px", fontWeight: 700, color: v.score > 0.6 ? "#ff4876" : "#10B981", marginTop: "4px" }}>{(v.score * 100).toFixed(1)}%</div>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* TAB 2: Stepped Telemetry Waveforms */}
+            {activeTab === "SIGNALS" && (
+              <div>
+                <div style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", color: "#9CA3AF" }}>
+                  <span>SYNCHRONIZED BUS SIGNALS (STEPPED SAMPLING)</span>
+                  <div style={{ display: "flex", gap: "12px" }}>
+                    <span style={{ color: "#06B6D4" }}>■ PACK V</span>
+                    <span style={{ color: "#ff4876" }}>■ TEMP °C</span>
+                  </div>
+                </div>
+                <div style={{ height: "260px", width: "100%", backgroundColor: "#111317", border: "1px solid #242933", padding: "10px" }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={v.history}>
+                      <CartesianGrid stroke="#1F232B" strokeDasharray="1 1" />
+                      <XAxis dataKey="t" stroke="#6B7280" fontSize={10} tickLine={false} />
+                      <YAxis stroke="#6B7280" fontSize={10} tickLine={false} domain={["auto", "auto"]} />
+                      <Tooltip contentStyle={{ backgroundColor: "#0B0C0E", border: "1px solid #242933", fontSize: "10px" }} />
+                      <Line type="stepAfter" dataKey="v" stroke="#06B6D4" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                      <Line type="stepAfter" dataKey="temp" stroke="#ff4876" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: Mathematical Explainability (Kernel SHAP) */}
+            {activeTab === "SHAP" && (
+              <div>
+                <div style={{ marginBottom: "12px", color: "#9CA3AF" }}>
+                  KERNEL SHAP FEATURE ATTRIBUTION (REFERENCE BASELINE: 50 NOMINAL SAMPLES)
+                </div>
+
+                <div style={{ height: "180px", width: "100%", backgroundColor: "#111317", border: "1px solid #242933", padding: "10px", marginBottom: "16px" }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart layout="vertical" data={v.shap} margin={{ top: 0, right: 20, left: 120, bottom: 0 }}>
+                      <CartesianGrid stroke="#1F232B" horizontal={false} />
+                      <XAxis type="number" stroke="#6B7280" fontSize={10} tickLine={false} domain={[-0.3, 0.6]} />
+                      <YAxis type="category" dataKey="feature" stroke="#9CA3AF" fontSize={10} tickLine={false} width={120} />
+                      <ReferenceLine x={0} stroke="#6B7280" />
+                      <Bar dataKey="impact" barSize={10} isAnimationActive={false}>
+                        {v.shap.map((entry, index) => (
+                          <Cell key={`c-${index}`} fill={entry.impact > 0 ? "#ff4876" : "#10B981"} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #242933", textAlign: "left" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "#14171D", borderBottom: "1px solid #242933", color: "#6B7280", fontSize: "10px" }}>
+                      <th style={{ padding: "6px 12px" }}>FEATURE</th>
+                      <th style={{ padding: "6px 12px", textAlign: "right" }}>BASELINE</th>
+                      <th style={{ padding: "6px 12px", textAlign: "right" }}>OBSERVED</th>
+                      <th style={{ padding: "6px 12px", textAlign: "right" }}>WEIGHT (ΔP)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {v.shap.map((row) => (
+                      <tr key={row.feature} style={{ borderBottom: "1px solid #1C2027" }}>
+                        <td style={{ padding: "6px 12px", color: "#F3F4F6" }}>{row.feature}</td>
+                        <td style={{ padding: "6px 12px", textAlign: "right", color: "#6B7280" }}>{row.base}</td>
+                        <td style={{ padding: "6px 12px", textAlign: "right", color: "#D1D5DB" }}>{row.obs}</td>
+                        <td style={{ padding: "6px 12px", textAlign: "right", fontWeight: 700, color: row.impact > 0 ? "#ff4876" : "#10B981" }}>
+                          {row.impact > 0 ? `+${row.impact.toFixed(2)}` : row.impact.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
           </div>
-        </section>
+
+          {/* Diagnostic Console Footer Ribbon */}
+          <div style={{ height: "28px", borderTop: "1px solid #242933", backgroundColor: "#0E1014", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", color: "#6B7280", fontSize: "10px" }}>
+            <span>DIAGNOSTIC ADVISORY: {v.status === "FAULT" ? "CRITICAL IMBALANCE DETECTED (CELL 15 UNDERVOLTAGE UNDER HEAVY LOAD)" : "ALL CELLS WITHIN ±15mV SAFE OPERATING WINDOW"}</span>
+            <span>BUFFER: 50 SAMPLES</span>
+          </div>
+
+        </main>
       </div>
-    </main>
+    </div>
   );
 }

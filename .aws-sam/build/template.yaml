@@ -2,11 +2,13 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Ohmnic - EV Battery Telemetry Streaming & Anomaly Detection Pipeline
 Resources:
-  BatteryTelemetryStream:
-    Type: AWS::Kinesis::Stream
+  BatteryTelemetryQueue:
+    Type: AWS::SQS::Queue
     Properties:
-      Name: ohmnic-battery-telemetry
-      ShardCount: 1
+      QueueName: ohmnic-battery-telemetry.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      VisibilityTimeout: 60
   VehicleStateTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -29,8 +31,6 @@ Resources:
       - arm64
       MemorySize: 512
       Timeout: 30
-      Layers:
-      - arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311-Arm64:12
       Environment:
         Variables:
           STATE_TABLE:
@@ -40,14 +40,13 @@ Resources:
           TableName:
             Ref: VehicleStateTable
       Events:
-        StreamBatch:
-          Type: Kinesis
+        BatchMessages:
+          Type: SQS
           Properties:
-            Stream:
+            Queue:
               Fn::GetAtt:
-              - BatteryTelemetryStream
+              - BatteryTelemetryQueue
               - Arn
-            StartingPosition: LATEST
-            BatchSize: 100
+            BatchSize: 10
     Metadata:
       SamResourceId: AnomalyProcessorFunction
