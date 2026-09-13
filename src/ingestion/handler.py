@@ -1,51 +1,53 @@
-import base64
 import json
 import logging
+import os
 from typing import Any
-
+import boto3
 from pydantic import ValidationError
-
 from .schema import TelemetryPayload
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def parse_kinesis_record(record: dict[str, Any]) -> TelemetryPayload:
-    """Parses and validates a single Kinesis record."""
-    payload_str = base64.b64decode(record["kinesis"]["data"]).decode("utf-8")
-    payload_dict = json.loads(payload_str)
+dynamodb = boto3.resource("dynamodb")
+table_name = os.environ.get("STATE_TABLE", "ohmnic-vehicle-baselines")
+table = dynamodb.Table(table_name)
+
+
+def parse_record(raw_body: str | dict[str, Any]) -> TelemetryPayload:
+    if isinstance(raw_body, str):
+        payload_dict = json.loads(raw_body)
+    else:
+        payload_dict = raw_body
     return TelemetryPayload(**payload_dict)
 
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    """
-    AWS Lambda handler for Kinesis batch processing.
-    """
-    logger.info(f"Received {len(event['Records'])} records")
-    
+    records = event.get("Records", [])
+    logger.info("Received %d records", len(records))
+
     valid_records: list[TelemetryPayload] = []
     failed_records: list[dict[str, Any]] = []
 
-    for record in event["Records"]:
+    for record in records:
         try:
-            telemetry = parse_kinesis_record(record)
+            # Supports both SQS ("body") and direct/Kinesis ("kinesis") formats
+            if "body" in record:
+                raw_data = record["body"]
+            elif "kinesis" in record:
+                import base64
+                raw_data = base64.b64decode(record["kinesis"]["data"]).decode("utf-8")
+            else:
+                raw_data = record
+
+            telemetry = parse_record(raw_data)
             valid_records.append(telemetry)
-        except (ValidationError, json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to parse record: {e}")
-            failed_records.append({
-                "record": record,
-                "error": str(e)
-            })
+        except (ValidationError, json.JSONDecodeError) as e:
+            logger.error("Failed to parse record: %s", e)
+            failed_records.append({"record": record, "error": str(e)})
 
-    # Here we would send valid_records to the Anomaly Engine
-    # and failed_records to a DLQ
-
-    logger.info(f"Processed {len(valid_records)} valid records. Failed {len(failed_records)} records.")
-    
     return {
         "statusCode": 200,
-        "body": json.dumps({
-            "message": "Batch processing complete",
-            "valid_count": len(valid_records),
-            "error_count": len(failed_records)
-        })
+        "processed": len(valid_records),
+        "failed": len(failed_records),
     }
