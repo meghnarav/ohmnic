@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Ωhmnic - Battery Telemetry Streaming & Anomaly Detection Pipeline
+Description: Ohmnic - EV Battery Telemetry Streaming & Anomaly Detection Pipeline
 
 Resources:
   BatteryTelemetryStream:
     Type: AWS::Kinesis::Stream
     Properties:
       Name: ohmnic-battery-telemetry
-      ShardCount: 2
+      ShardCount: 1
 
   VehicleStateTable:
     Type: AWS::DynamoDB::Table
@@ -28,11 +28,18 @@ Resources:
       CodeUri: src/
       Handler: ingestion.handler.lambda_handler
       Runtime: python3.11
-      MemorySize: 1024
+      Architectures:
+        - arm64
+      MemorySize: 512
       Timeout: 30
+      Layers:
+        - arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311-Arm64:12
       Environment:
         Variables:
           STATE_TABLE: !Ref VehicleStateTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VehicleStateTable
       Events:
         StreamBatch:
           Type: Kinesis

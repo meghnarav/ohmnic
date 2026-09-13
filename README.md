@@ -64,21 +64,24 @@ pip install -r requirements.txt
 
 ```
 
-### 2. Run Local Emulation
+### 2. Deploy Infrastructure to AWS
 
-Start LocalStack to mock AWS Kinesis and DynamoDB:
+Deploy the serverless backend using AWS SAM:
 
 ```bash
-docker compose up -d
-
+sam build
+sam deploy --guided
 ```
 
-### 3. Run Tests & Validation
+### 3. Deploy Frontend to Vercel
+
+The `frontend` directory is a Next.js application that can be deployed directly to Vercel. Connect your repository to Vercel and set the root directory to `frontend`.
+
+### 4. Run Tests & Validation
 
 ```bash
 ruff check .
 pytest tests/ --cov=src
-
 ```
 
 ---

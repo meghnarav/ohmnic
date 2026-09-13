@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Ohmnic - EV Battery Telemetry Streaming & Anomaly Detection Pipeline
+Resources:
+  BatteryTelemetryStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: ohmnic-battery-telemetry
+      ShardCount: 1
+  VehicleStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ohmnic-vehicle-baselines
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: vehicle_id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: vehicle_id
+        KeyType: HASH
+  AnomalyProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ohmnic-anomaly-engine
+      CodeUri: AnomalyProcessorFunction
+      Handler: ingestion.handler.lambda_handler
+      Runtime: python3.11
+      Architectures:
+      - arm64
+      MemorySize: 512
+      Timeout: 30
+      Layers:
+      - arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311-Arm64:12
+      Environment:
+        Variables:
+          STATE_TABLE:
+            Ref: VehicleStateTable
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: VehicleStateTable
+      Events:
+        StreamBatch:
+          Type: Kinesis
+          Properties:
+            Stream:
+              Fn::GetAtt:
+              - BatteryTelemetryStream
+              - Arn
+            StartingPosition: LATEST
+            BatchSize: 100
+    Metadata:
+      SamResourceId: AnomalyProcessorFunction
