@@ -1,10 +1,9 @@
-import os
 import json
-import time
-import uuid
-import base64
+import os
 import random
-from datetime import datetime
+import time
+from datetime import datetime, timezone
+
 import boto3
 
 # Configuration
@@ -25,7 +24,7 @@ def generate_nominal_telemetry(vehicle_id: str) -> dict:
     """Generate healthy battery metrics."""
     return {
         "vehicle_id": vehicle_id,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "session_type": "driving",
         "state_of_charge": round(random.uniform(20.0, 80.0), 1),
         "pack_voltage": round(random.uniform(350.0, 400.0), 1),

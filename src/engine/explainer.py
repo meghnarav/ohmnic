@@ -1,41 +1,35 @@
-import shap
 import numpy as np
+import shap
 from sklearn.ensemble import IsolationForest
-from typing import List, Dict, Any
+
 
 class AnomalyExplainer:
-    def __init__(self, model: IsolationForest, background_data: List[List[float]], feature_names: List[str]):
+    def __init__(self, model: IsolationForest, background_data: list[list[float]], feature_names: list[str]):
         """Initialize Kernel SHAP explainer."""
-        # Using a subset of background data for Kernel SHAP to keep it fast
-        background = shap.kmeans(np.array(background_data), 10)
-        # IsolationForest decision_function outputs anomaly scores
-        self.explainer = shap.KernelExplainer(model.decision_function, background)
-        self.feature_names = feature_names
+        bg_array = np.array(background_data)
+        # Use shap.sample to safely pick up to 10 points without kmeans clustering errors
+        sample_size = min(10, len(bg_array))
+        background = shap.sample(bg_array, sample_size)
         
-    def explain(self, current_features: List[float]) -> Dict[str, float]:
+        self.model = model
+        self.feature_names = feature_names
+        self.explainer = shap.KernelExplainer(model.decision_function, background)
+
+    def explain(self, current_features: list[float]) -> dict[str, float]:
         """Calculate SHAP values to explain the anomaly score."""
         try:
-            X = np.array([current_features])
-            shap_values = self.explainer.shap_values(X)
+            arr = np.array(current_features).reshape(1, -1)
+            shap_values = self.explainer.shap_values(arr, nsamples=50, silent=True)
             
-            # Extract values for the single instance
-            instance_shap_values = shap_values[0]
-            
-            # Map feature names to their absolute SHAP attribution
-            attributions = {
-                name: float(abs(val)) 
-                for name, val in zip(self.feature_names, instance_shap_values)
-            }
-            
-            # Normalize to percentages
-            total_attribution = sum(attributions.values())
-            if total_attribution > 0:
-                attributions = {
-                    name: (val / total_attribution) * 100 
-                    for name, val in attributions.items()
-                }
+            # Handle 1D vs 2D shap output shapes
+            vals = shap_values[0] if isinstance(shap_values, list) else shap_values
+            if hasattr(vals, "flatten"):
+                vals = vals.flatten()
                 
-            return attributions
-        except Exception as e:
+            return {
+                name: float(val)
+                for name, val in zip(self.feature_names, vals, strict=False)
+            }
+        except Exception as e:  # noqa: BLE001
             print(f"Error calculating SHAP explanations: {e}")
             return {}

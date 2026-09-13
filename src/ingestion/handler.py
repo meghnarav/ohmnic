@@ -1,27 +1,29 @@
-import json
 import base64
+import json
 import logging
-from typing import Any, Dict, List
-from .schema import TelemetryPayload
+from typing import Any
+
 from pydantic import ValidationError
+
+from .schema import TelemetryPayload
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def parse_kinesis_record(record: Dict[str, Any]) -> TelemetryPayload:
+def parse_kinesis_record(record: dict[str, Any]) -> TelemetryPayload:
     """Parses and validates a single Kinesis record."""
     payload_str = base64.b64decode(record["kinesis"]["data"]).decode("utf-8")
     payload_dict = json.loads(payload_str)
     return TelemetryPayload(**payload_dict)
 
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
     AWS Lambda handler for Kinesis batch processing.
     """
     logger.info(f"Received {len(event['Records'])} records")
     
-    valid_records: List[TelemetryPayload] = []
-    failed_records: List[Dict[str, Any]] = []
+    valid_records: list[TelemetryPayload] = []
+    failed_records: list[dict[str, Any]] = []
 
     for record in event["Records"]:
         try:

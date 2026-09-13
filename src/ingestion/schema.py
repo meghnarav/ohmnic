@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+
+from pydantic import BaseModel, Field
+
 
 class TelemetryPayload(BaseModel):
     vehicle_id: str = Field(..., description="Unique identifier for the vehicle")
@@ -13,4 +14,4 @@ class TelemetryPayload(BaseModel):
     cell_voltage_delta: float = Field(..., description="Difference between highest and lowest cell voltages")
     max_cell_temp_c: float = Field(..., description="Maximum single cell temperature in Celsius")
     min_cell_temp_c: float = Field(..., description="Minimum single cell temperature in Celsius")
-    charge_rate_kw: Optional[float] = Field(None, description="Charge rate in kW if charging")
+    charge_rate_kw: float | None = Field(None, description="Charge rate in kW if charging")
