@@ -56,7 +56,7 @@ Sample payload accepted by the ingestion pipeline:
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/meghnarav/ohmnic.git)
+git clone https://github.com/meghnarav/ohmnic.git
 cd ohmnic
 python3 -m venv .venv
 source .venv/bin/activate
