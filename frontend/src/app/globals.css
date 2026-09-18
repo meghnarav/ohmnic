@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -13,12 +14,29 @@
   --color-accent-amber: #F5A623;
   --color-accent-emerald: #10B981;
   --color-accent-cyan: #06B6D4;
+}
 
-  --font-display-xl: var(--font-sora);
-  --font-heading-lg: var(--font-sora);
-  --font-body-md: var(--font-inter);
-  --font-code-stream: var(--font-jetbrains-mono);
-  
-  --radius-card: 20px;
-  --radius-pill: 50px;
+html,
+body {
+  background-color: #0B0C0E !important;
+  color: #F3F4F6;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-heading {
+  font-family: 'Sora', sans-serif;
+}
+
+code,
+pre,
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-feature-settings: "tnum";
 }
