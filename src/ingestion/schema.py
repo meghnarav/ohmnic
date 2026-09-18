@@ -15,3 +15,6 @@ class TelemetryPayload(BaseModel):
     max_cell_temp_c: float = Field(..., description="Maximum single cell temperature in Celsius")
     min_cell_temp_c: float = Field(..., description="Minimum single cell temperature in Celsius")
     charge_rate_kw: float | None = Field(None, description="Charge rate in kW if charging")
+    speed_mph: float | None = Field(None, description="Current speed in mph")
+    gps_lat: float | None = Field(None, description="GPS Latitude")
+    gps_lng: float | None = Field(None, description="GPS Longitude")

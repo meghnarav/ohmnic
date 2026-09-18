@@ -1,8 +1,8 @@
 import json
 import logging
-from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
+
 
 def float_to_decimal(data: Any) -> Any:
     if isinstance(data, float):
@@ -113,7 +113,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             recent_history = recent_history[-10:]
             
             payload_to_save = float_to_decimal({
-                "last_updated": datetime.now(timezone.utc).isoformat(),
+                "last_updated": telemetry.timestamp.isoformat(),
                 "status": status,
                 "soc": telemetry.state_of_charge,
                 "pack_voltage": telemetry.pack_voltage,
@@ -123,7 +123,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 "anomaly_score": anomaly_score,
                 "shap_drivers": shap_drivers,
                 "recent_history": recent_history,
-                "history_vectors": history
+                "history_vectors": history,
+                "speed_mph": telemetry.speed_mph,
+                "gps_lat": telemetry.gps_lat,
+                "gps_lng": telemetry.gps_lng,
             })
             BaselineManager.update_baseline(vid, payload_to_save)
             

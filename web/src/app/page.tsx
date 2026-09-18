@@ -37,6 +37,11 @@ interface Vehicle {
   cells: number[];
   history: { t: string; v: number; a: number; temp: number }[];
   shap: { feature: string; impact: number; base: string; obs: string }[];
+  speed: number | null;
+  gpsLat: number | null;
+  gpsLng: number | null;
+  lastUpdated: string | null;
+  isStale?: boolean;
 }
 
 const GENERATE_CELLS = (baseV: number, delta: number) => {
@@ -73,6 +78,7 @@ const SEED_FLEET: Vehicle[] = [
       { feature: "pack_temp_c", impact: -0.08, base: "30.5 °C", obs: "31.2 °C" },
       { feature: "pack_current", impact: 0.01, base: "-40.0 A", obs: "-42.1 A" },
     ],
+    speed: 0, gpsLat: 37.7749, gpsLng: -122.4194, lastUpdated: new Date().toISOString()
   },
   {
     vin: "VIN-EV-1001",
@@ -100,6 +106,7 @@ const SEED_FLEET: Vehicle[] = [
       { feature: "pack_current", impact: 0.18, base: "50.0 A", obs: "248.5 A" },
       { feature: "pack_voltage", impact: -0.11, base: "395.0 V", obs: "351.8 V" },
     ],
+    speed: 65, gpsLat: 37.7749, gpsLng: -122.4194, lastUpdated: new Date().toISOString()
   },
   {
     vin: "VIN-EV-1002",
@@ -125,6 +132,7 @@ const SEED_FLEET: Vehicle[] = [
       { feature: "cell_voltage_delta", impact: -0.06, base: "0.016 V", obs: "0.018 V" },
       { feature: "pack_temp_c", impact: -0.03, base: "28.0 °C", obs: "28.4 °C" },
     ],
+    speed: 0, gpsLat: 37.7749, gpsLng: -122.4194, lastUpdated: new Date().toISOString()
   },
   {
     vin: "VIN-EV-1003",
@@ -151,6 +159,7 @@ const SEED_FLEET: Vehicle[] = [
       { feature: "max_temp_c", impact: 0.19, base: "30.0 °C", obs: "44.8 °C" },
       { feature: "pack_current", impact: 0.04, base: "-45.0 A", obs: "-78.4 A" },
     ],
+    speed: 45, gpsLat: 37.7749, gpsLng: -122.4194, lastUpdated: new Date().toISOString()
   },
   {
     vin: "VIN-EV-1004",
@@ -176,6 +185,7 @@ const SEED_FLEET: Vehicle[] = [
       { feature: "cell_voltage_delta", impact: -0.11, base: "0.014 V", obs: "0.012 V" },
       { feature: "pack_temp_c", impact: -0.05, base: "27.0 °C", obs: "27.1 °C" },
     ],
+    speed: 25, gpsLat: 37.7749, gpsLng: -122.4194, lastUpdated: new Date().toISOString()
   },
 ];
 
@@ -213,6 +223,10 @@ export default function SCADAConsole() {
       cells: GENERATE_CELLS(voltage / (newPackType.includes("LFP") ? 108 : 96), 0.005),
       history: [],
       shap: [],
+      speed: 0,
+      gpsLat: 37.7749,
+      gpsLng: -122.4194,
+      lastUpdated: new Date().toISOString(),
     };
     setFleet((prev) => [newVehicle, ...prev]);
     setIsModalOpen(false);
@@ -288,7 +302,11 @@ export default function SCADAConsole() {
                   impact: s.attribution,
                   base: s.baseline_val,
                   obs: s.current_val
-                }))
+                })),
+                speed: v.speed_mph ?? null,
+                gpsLat: v.gps_lat ?? null,
+                gpsLng: v.gps_lng ?? null,
+                lastUpdated: v.last_updated ?? null,
               };
             });
             setFleet(mappedLive);
@@ -305,10 +323,11 @@ export default function SCADAConsole() {
     return () => clearInterval(intervalId);
   }, []);
 
-  const v = useMemo(
-    () => fleet.find((item) => item.vin === selectedVin) || fleet[0],
-    [fleet, selectedVin]
-  );
+  const v = useMemo(() => {
+    const selected = fleet.find((item) => item.vin === selectedVin) || fleet[0];
+    const isStale = selected.lastUpdated ? (Date.now() - new Date(selected.lastUpdated).getTime()) > 15000 : false;
+    return { ...selected, isStale };
+  }, [fleet, selectedVin]);
 
   if (!mounted) {
     return <div style={{ height: "100vh", width: "100vw", backgroundColor: "#0B0C0E" }} />;
@@ -381,6 +400,7 @@ export default function SCADAConsole() {
                     backgroundColor: isSelected ? "#1F232B" : "transparent",
                     alignItems: "center",
                     borderLeft: isSelected ? "2px solid #06B6D4" : "2px solid transparent",
+                    opacity: item.lastUpdated && (Date.now() - new Date(item.lastUpdated).getTime() > 15000) ? 0.4 : 1,
                   }}
                 >
                   <div onClick={() => setSelectedVin(item.vin)} style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
@@ -391,9 +411,15 @@ export default function SCADAConsole() {
                     }} />
                     <span style={{ color: isSelected ? "#F3F4F6" : "#D1D5DB", fontWeight: 600 }}>{item.vin}</span>
                   </div>
-                  <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: "#9CA3AF", cursor: "pointer" }}>{item.soc}%</div>
-                  <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: "#D1D5DB", cursor: "pointer" }}>{item.packVoltage.toFixed(1)}V</div>
-                  <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: item.maxTemp > 50 ? "#ff4876" : "#9CA3AF", cursor: "pointer" }}>{item.maxTemp}°C</div>
+                  <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: "#9CA3AF", cursor: "pointer", display: "flex", justifyContent: "flex-end" }}>
+                    {item.soc === null ? <div className="animate-pulse bg-[#242933] h-3 w-6 rounded"></div> : `${item.soc}%`}
+                  </div>
+                  <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: "#D1D5DB", cursor: "pointer", display: "flex", justifyContent: "flex-end" }}>
+                    {item.packVoltage === null ? <div className="animate-pulse bg-[#242933] h-3 w-8 rounded"></div> : `${item.packVoltage.toFixed(1)}V`}
+                  </div>
+                  <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: item.maxTemp > 200 ? "#ff4876" : item.maxTemp > 50 ? "#ff4876" : "#9CA3AF", cursor: "pointer" }}>
+                    {item.maxTemp > 200 ? "[ERR]" : `${item.maxTemp}°C`}
+                  </div>
                   <div onClick={() => setSelectedVin(item.vin)} style={{ textAlign: "right", color: item.deltaV > 0.1 ? "#ff4876" : item.deltaV > 0.03 ? "#F5A623" : "#10B981", fontWeight: 700, cursor: "pointer" }}>
                     {item.deltaV.toFixed(3)}
                   </div>
@@ -423,15 +449,19 @@ export default function SCADAConsole() {
               <div>
                 <span style={{ fontSize: "14px", fontWeight: 800, color: "#F3F4F6" }}>{v.vin}</span>
                 <span style={{ marginLeft: "10px", color: "#6B7280", fontSize: "10px" }}>CONFIG: {v.packType}</span>
+                <span style={{ marginLeft: "10px", color: "#6B7280", fontSize: "10px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  | GPS: {v.gpsLat === null ? <span className="animate-pulse bg-[#242933] inline-block h-2 w-16 rounded ml-1"></span> : `${v.gpsLat.toFixed(4)}, ${v.gpsLng?.toFixed(4)}`} 
+                  | SPD: {v.speed === null ? <span className="animate-pulse bg-[#242933] inline-block h-2 w-8 rounded ml-1"></span> : (v.speed > 200 ? <span style={{ color: "#ff4876" }}>[ERR]</span> : `${v.speed.toFixed(0)} MPH`)}
+                </span>
               </div>
               <span style={{
                 padding: "2px 8px",
-                border: `1px solid ${v.status === "FAULT" ? "#ff4876" : v.status === "WARN" ? "#F5A623" : "#10B981"}`,
-                color: v.status === "FAULT" ? "#ff4876" : v.status === "WARN" ? "#F5A623" : "#10B981",
+                border: `1px solid ${v.isStale ? "#6B7280" : v.status === "FAULT" ? "#ff4876" : v.status === "WARN" ? "#F5A623" : "#10B981"}`,
+                color: v.isStale ? "#9CA3AF" : v.status === "FAULT" ? "#ff4876" : v.status === "WARN" ? "#F5A623" : "#10B981",
                 fontSize: "10px",
                 fontWeight: 700
               }}>
-                STATE: {v.status}
+                STATE: {v.isStale ? "STALE DATA" : v.status}
               </span>
             </div>
 
