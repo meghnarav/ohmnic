@@ -1,0 +1,36 @@
+# Python & Virtual Environments
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# AWS SAM & Cloud Artifacts
+.aws-sam/
+samconfig.toml
+
+# Data & Large Binaries (keep code, exclude bulky data)
+data/
+*.mat
+*.joblib
+*.pkl
+fault_stream_*.json
+nasa_*.json
+ev_fleet_model.json
+
+# Next.js & Node
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Secrets & Local Environment Configs
+.env
+.env*.local
+*.pem
+
+# OS Metadata
+.DS_Store
+Thumbs.db

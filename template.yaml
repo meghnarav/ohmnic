@@ -25,11 +25,14 @@ Resources:
 
   AnomalyProcessorFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: ./src
+      DockerTag: python3.11-v1
     Properties:
       FunctionName: ohmnic-anomaly-engine
       CodeUri: src/
-      Handler: ingestion.handler.lambda_handler
-      Runtime: python3.11
+      PackageType: Image
       Architectures:
         - arm64
       MemorySize: 512
@@ -37,9 +40,12 @@ Resources:
       Environment:
         Variables:
           STATE_TABLE: !Ref VehicleStateTable
+          GEMINI_API_KEY: 'REPLACE_ME_OR_USE_PARAMETER'
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VehicleStateTable
+        - S3ReadPolicy:
+            BucketName: aws-sam-cli-managed-default-samclisourcebucket-tnpvxs69s5fy
       Events:
         BatchMessages:
           Type: SQS

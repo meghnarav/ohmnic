@@ -9,7 +9,7 @@ const client = new DynamoDBClient({
 const docClient = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.DYNAMODB_TABLE || 'ohmnic-vehicle-baselines';
 
-export const runtime = 'edge'; // Optional: Use edge for streaming
+export const runtime = 'nodejs'; // Use nodejs to allow AWS SDK to read ~/.aws/credentials
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {

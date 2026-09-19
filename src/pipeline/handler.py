@@ -1,97 +1,68 @@
-import os
 import json
-import numpy as np
-from datetime import datetime
-from decimal import Decimal
 import boto3
-from src.engine.detector import AnomalyDetector  
-from src.engine.explainer import AnomalyExplainer
+import joblib
+import pandas as pd
+import shap
+from decimal import Decimal
 
-# Initialize AWS clients
-dynamodb = boto3.resource('dynamodb', region_name=os.environ.get('AWS_REGION', 'us-east-1'))
-TABLE_NAME = os.environ.get('DYNAMODB_TABLE', 'ohmnic-vehicle-baselines')
-table = dynamodb.Table(TABLE_NAME)
+# Load into global scope to prevent reloading during Lambda warm starts
+MODEL_PATH = "isolation_forest_bms.joblib"
+detector = joblib.load(MODEL_PATH)
+explainer = shap.TreeExplainer(detector) 
 
-def float_to_decimal(obj):
-    """Recursively converts python floats to Decimals for DynamoDB persistence."""
-    if isinstance(obj, float):
-        return Decimal(str(obj)) if not np.isnan(obj) else Decimal('0.0')
-    elif isinstance(obj, dict):
-        return {k: float_to_decimal(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [float_to_decimal(v) for v in obj]
-    return obj
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('ohmnic-vehicle-baselines')
 
-def lambda_handler(event, context):
-    """
-    Processes SQS FIFO high-frequency EV telemetry batches.
-    Runs Isolation Forest and appends Kernel SHAP values on critical thresholds.
-    """
-    processed_records = 0
-    
+def process_telemetry(event, context):
     for record in event.get('Records', []):
-        try:
-            body = json.loads(record['body'])
-            vin = body['vin']
-            timestamp = body.get('timestamp', datetime.utcnow().isoformat())
-            depot = body.get('depot', 'UNKNOWN')
+        payload = json.loads(record['body'])
+        
+        # 1. Format live CAN bus telemetry
+        features = ['pack_voltage', 'pack_current', 'pack_temp_c', 'cell_voltage_delta']
+        X_live = pd.DataFrame([[payload[f] for f in features]], columns=features)
+        
+        # 2. Execute Isolation Forest Inference
+        is_inlier = detector.predict(X_live)[0]
+        raw_score = float(detector.decision_function(X_live)[0])
+        
+        # Normalize decision_function (negative = highly anomalous) to 0.0 - 1.0 for the React UI
+        anomaly_prob = round(float(0.5 - (raw_score * 0.5)), 3)
+        
+        status = "NOMINAL"
+        shap_drivers = []
+        
+        # 3. Millisecond XAI via TreeSHAP (Only runs if anomaly trips)
+        if is_inlier == -1 or anomaly_prob > 0.65:
+            status = "FAULT" if anomaly_prob > 0.85 else "WARN"
+            shap_values = explainer.shap_values(X_live)
             
-            features = {
-                'pack_voltage': float(body['pack_voltage']),
-                'pack_current': float(body['pack_current']),
-                'pack_temp_c': float(body['pack_temp_c']),
-                'ambient_temp_c': float(body.get('ambient_temp_c', 25.0)),
-                'cell_voltage_delta': float(body['cell_voltage_delta']),
-                'max_cell_temp_c': float(body['max_cell_temp_c']),
-                'charge_rate_kw': float(body['charge_rate_kw']),
-                'regen_kwh': float(body.get('regen_kwh', 0.0)),
-                'consumed_kwh': float(body.get('consumed_kwh', 0.0)),
-                'soh': float(body.get('soh', 100.0)),
-                'speed_mph': float(body.get('speed_mph', 0.0)),
-                'gps_lat': float(body.get('gps_lat', 0.0)),
-                'gps_lng': float(body.get('gps_lng', 0.0)),
-            }
-            
-            feature_vector = [
-                features['pack_voltage'], features['pack_current'], features['pack_temp_c'],
-                features['cell_voltage_delta'], features['max_cell_temp_c'], features['charge_rate_kw']
-            ]
-            
-            anomaly_score = float(AnomalyDetector.predict(feature_vector))
-            is_anomaly = anomaly_score > 0.65 
-            
-            shap_attributions = {}
-            if is_anomaly:
-                raw_shap = AnomalyExplainer.explain(feature_vector)
-                shap_attributions = {
-                    'pack_voltage': float(raw_shap[0]),
-                    'pack_current': float(raw_shap[1]),
-                    'pack_temp_c': float(raw_shap[2]),
-                    'cell_voltage_delta': float(raw_shap[3]),
-                    'max_cell_temp_c': float(raw_shap[4]),
-                    'charge_rate_kw': float(raw_shap[5])
-                }
-            else:
-                shap_attributions = {k: 0.0 for k in features.keys()}
-                
-            db_item = {
-                'vin': vin,
-                'last_updated': timestamp,
-                'depot': depot,
-                'telemetry': features,
-                'anomaly_score': anomaly_score,
-                'status': 'CRITICAL_FAULT' if is_anomaly else 'NOMINAL',
-                'shap_attribution': shap_attributions
-            }
-            
-            table.put_item(Item=float_to_decimal(db_item))
-            processed_records += 1
-            
-        except Exception as e:
-            print(f"Error executing inference pipeline on record: {str(e)}")
-            continue
-            
-    return {
-        'statusCode': 200,
-        'body': json.dumps(f"Processed {processed_records} telemetry packets successfully.")
-    }
+            for idx, feature_name in enumerate(features):
+                impact = float(shap_values[0][idx])
+                # In Isolation Forests, negative SHAP values drive the anomaly score higher
+                if impact < 0: 
+                    shap_drivers.append({
+                        "feature": feature_name,
+                        "impact": round(abs(impact), 3),
+                        "observed": f"{payload[feature_name]}"
+                    })
+                    
+            # Sort UI payload to show the most critical contributing feature at the top
+            shap_drivers = sorted(shap_drivers, key=lambda k: k['impact'], reverse=True)
+        
+        # 4. Upsert persistent state to DynamoDB
+        db_item = json.loads(json.dumps({
+            "vin": payload['vehicle_id'],
+            "timestamp": payload['timestamp'],
+            "packVoltage": payload['pack_voltage'],
+            "packCurrent": payload['pack_current'],
+            "maxTemp": payload['pack_temp_c'],
+            "deltaV": payload['cell_voltage_delta'],
+            "status": status,
+            "score": anomaly_prob,
+            "shap": shap_drivers
+        }), parse_float=Decimal)
+        
+        table.put_item(Item=db_item)
+        print(f"[{status}] VIN: {payload['vehicle_id']} processed.")
+        
+    return {"statusCode": 200, "body": "Success"}

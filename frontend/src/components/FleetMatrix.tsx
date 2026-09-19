@@ -1,24 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { VehicleRecord } from '@/app/page';
 
-export default function FleetMatrix({ vehicles, selectedVin, onSelectVin }: any) {
-    const [geofenceActive, setGeofenceActive] = useState(false);
-
+export default function FleetMatrix({ vehicles, selectedVin, onSelectVin }: { vehicles: VehicleRecord[], selectedVin: string | null, onSelectVin: (vin: string) => void }) {
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center mb-4 pb-2 border-b border-[#242933]">
-                <span className="text-xs text-gray-400">Geofencing Controls:</span>
-                <button 
-                    onClick={() => setGeofenceActive(!geofenceActive)}
-                    className={`text-[10px] px-3 py-1 font-bold ${geofenceActive ? 'bg-emerald-500 text-black' : 'border border-gray-600 text-gray-400'}`}
-                >
-                    {geofenceActive ? 'ZONE RESTRICTION ACTIVE' : 'TOGGLE BOUNDARY'}
-                </button>
+                <span className="text-xs text-gray-400">Total Active Vehicles: {vehicles.length}</span>
             </div>
 
             <div className="grid grid-cols-1 gap-2">
-                {vehicles.map((v: any) => {
-                    const outOfBounds = geofenceActive && (Math.abs(v.telemetry?.gps_lat - 37.77) > 0.05 || Math.abs(v.telemetry?.gps_lng - (-122.41)) > 0.05);
-
+                {vehicles.map((v) => {
+                    const prob = v.score * 100;
                     return (
                         <div 
                             key={v.vin} 
@@ -27,17 +19,13 @@ export default function FleetMatrix({ vehicles, selectedVin, onSelectVin }: any)
                         >
                             <div className="flex justify-between items-center">
                                 <span className="text-sm font-bold text-gray-200">{v.vin}</span>
-                                {outOfBounds ? (
-                                    <span className="text-[10px] px-2 py-0.5 bg-[#F5A623] text-black font-bold animate-pulse">GEOFENCE BREACH</span>
-                                ) : (
-                                    <span className={`text-[10px] px-2 py-0.5 font-bold ${v.status === 'CRITICAL_FAULT' ? 'bg-[#ff4876] text-black' : 'bg-[#242933] text-emerald-500'}`}>
-                                        {v.status}
-                                    </span>
-                                )}
+                                <span className={`text-[10px] px-2 py-0.5 font-bold ${v.status === 'FAULT' ? 'bg-[#ff4876] text-black' : v.status === 'WARN' ? 'bg-[#F5A623] text-black' : 'bg-[#242933] text-emerald-500'}`}>
+                                    {v.status}
+                                </span>
                             </div>
                             <div className="mt-2 text-xs text-gray-500 flex justify-between">
-                                <span>SOC: {v.telemetry?.state_of_charge ?? '100'}%</span>
-                                <span>SPD: {v.telemetry?.speed_mph?.toFixed(0) ?? '0'} MPH</span>
+                                <span>Volt: {v.packVoltage.toFixed(1)}V</span>
+                                <span>Anomaly: {prob.toFixed(1)}%</span>
                             </div>
                         </div>
                     );

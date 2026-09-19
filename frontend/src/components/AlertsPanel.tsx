@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { VehicleRecord } from '@/app/page';
 
-export default function AlertsPanel({ fleet }: any) {
+export default function AlertsPanel({ fleet }: { fleet: VehicleRecord[] }) {
     const [triageState, setTriageState] = useState<Record<string, 'ASSIGNED' | 'SNOOZED' | 'RESOLVED'>>({});
 
-    const criticalAlerts = fleet.filter((v: any) => v.status === 'CRITICAL_FAULT');
+    const criticalAlerts = fleet.filter((v) => v.status === 'FAULT' || v.status === 'WARN');
 
     return (
         <div className="h-full flex flex-col">
@@ -14,14 +15,14 @@ export default function AlertsPanel({ fleet }: any) {
                 {criticalAlerts.length === 0 ? (
                     <div className="text-xs text-gray-500">No active alerts. System Nominal.</div>
                 ) : (
-                    criticalAlerts.map((v: any) => (
-                        <div key={v.vin} className={`p-3 border ${triageState[v.vin] ? 'opacity-50 border-[#242933] bg-[#0B0C0E]' : 'border-[#ff4876] bg-[#16181D]'}`}>
+                    criticalAlerts.map((v) => (
+                        <div key={v.vin} className={`p-3 border ${triageState[v.vin] ? 'opacity-50 border-[#242933] bg-[#0B0C0E]' : v.status === 'FAULT' ? 'border-[#ff4876] bg-[#16181D]' : 'border-[#F5A623] bg-[#16181D]'}`}>
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-sm font-bold text-gray-200">{v.vin}</span>
                                 <span className="text-[10px] text-[#ff4876]">{triageState[v.vin] || 'UNASSIGNED'}</span>
                             </div>
                             <div className="text-xs text-gray-400 mb-3">
-                                Max Temp: {v.telemetry?.max_cell_temp_c}°C
+                                Pack Temp: {v.maxTemp.toFixed(1)}°C
                             </div>
                             
                             <div className="flex space-x-2">

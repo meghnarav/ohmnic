@@ -1,144 +1,69 @@
 import json
-import logging
+import boto3
+import pickle
+import pandas as pd
+import shap
 from decimal import Decimal
-from typing import Any
 
+# Load into global scope to prevent reloading during Lambda warm starts
+MODEL_PATH = "isolation_forest_bms.pkl"
+with open(MODEL_PATH, 'rb') as f:
+    detector = pickle.load(f)
+explainer = shap.TreeExplainer(detector) 
 
-def float_to_decimal(data: Any) -> Any:
-    if isinstance(data, float):
-        # Prevent precision issues by converting float to str first
-        return Decimal(str(data))
-    if isinstance(data, dict):
-        return {k: float_to_decimal(v) for k, v in data.items()}
-    if isinstance(data, list):
-        return [float_to_decimal(v) for v in data]
-    return data
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('ohmnic-vehicle-baselines')
 
-from pydantic import ValidationError
-
-from src.engine.baseline import BaselineManager
-from src.engine.detector import AnomalyDetector
-from src.engine.explainer import AnomalyExplainer
-
-from .schema import TelemetryPayload
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-FEATURE_NAMES = ["pack_voltage", "pack_current", "pack_temp_c", "cell_voltage_delta", "charge_rate_kw"]
-
-def parse_record(raw_body: str | dict[str, Any]) -> TelemetryPayload:
-    if isinstance(raw_body, str):
-        payload_dict = json.loads(raw_body)
-    else:
-        payload_dict = raw_body
-    return TelemetryPayload(**payload_dict)
-
-
-def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    records = event.get("Records", [])
-    logger.info("Received %d records", len(records))
-
-    valid_records: list[TelemetryPayload] = []
-    failed_records: list[dict[str, Any]] = []
-
-    for record in records:
-        try:
-            # Supports both SQS ("body") and direct/Kinesis ("kinesis") formats
-            if "body" in record:
-                raw_data = record["body"]
-            elif "kinesis" in record:
-                import base64
-                raw_data = base64.b64decode(record["kinesis"]["data"]).decode("utf-8")
-            else:
-                raw_data = record
-
-            telemetry = parse_record(raw_data)
-            valid_records.append(telemetry)
+def process_telemetry(event, context):
+    for record in event.get('Records', []):
+        payload = json.loads(record['body'])
+        
+        # 1. Format live CAN bus telemetry
+        features = ['pack_voltage', 'pack_current', 'pack_temp_c', 'cell_voltage_delta']
+        X_live = pd.DataFrame([[payload[f] for f in features]], columns=features)
+        
+        # 2. Execute Isolation Forest Inference
+        is_inlier = detector.predict(X_live)[0]
+        raw_score = float(detector.decision_function(X_live)[0])
+        
+        # Normalize decision_function (negative = highly anomalous) to 0.0 - 1.0 for the React UI
+        anomaly_prob = round(float(0.5 - (raw_score * 0.5)), 3)
+        
+        status = "NOMINAL"
+        shap_drivers = []
+        
+        # 3. Millisecond XAI via TreeSHAP (Only runs if anomaly trips)
+        if is_inlier == -1 or anomaly_prob > 0.65:
+            status = "FAULT" if anomaly_prob > 0.85 else "WARN"
+            shap_values = explainer.shap_values(X_live)
             
-            # ML Logic
-            vid = telemetry.vehicle_id
-            features = [
-                telemetry.pack_voltage,
-                telemetry.pack_current,
-                telemetry.pack_temp_c,
-                telemetry.cell_voltage_delta,
-                telemetry.charge_rate_kw or 0.0
-            ]
-            
-            baseline = BaselineManager.get_baseline(vid) or {}
-            history = baseline.get("history_vectors", [])
-            recent_history = baseline.get("recent_history", [])
-            
-            anomaly_score = 0.0
-            status = "NOMINAL"
-            shap_drivers = []
-            
-            if len(history) >= 10:
-                detector = AnomalyDetector()
-                detector.fit(history)
-                pred = detector.predict(features)
-                is_anomaly = pred.get("is_anomaly", False)
-                anomaly_score = pred.get("anomaly_score", 0.0)
-                
-                if is_anomaly or anomaly_score > 0.65:
-                    status = "CRITICAL ANOMALY"
-                    explainer = AnomalyExplainer(detector.model, history, FEATURE_NAMES)
-                    shap_attributions = explainer.explain(features)
+            for idx, feature_name in enumerate(features):
+                impact = float(shap_values[0][idx])
+                # In Isolation Forests, negative SHAP values drive the anomaly score higher
+                if impact < 0: 
+                    shap_drivers.append({
+                        "feature": feature_name,
+                        "impact": round(abs(impact), 3),
+                        "observed": f"{payload[feature_name]}"
+                    })
                     
-                    # Compute mean baseline for each feature for auditing
-                    import numpy as np
-                    hist_arr = np.array(history)
-                    means = np.mean(hist_arr, axis=0)
-                    
-                    for idx, name in enumerate(FEATURE_NAMES):
-                        if name in shap_attributions:
-                            shap_drivers.append({
-                                "feature": str(name),
-                                "attribution": float(shap_attributions[name]),
-                                "baseline_val": str(round(means[idx], 3)),
-                                "current_val": str(round(features[idx], 3))
-                            })
-            
-            if status == "NOMINAL":
-                history.append(features)
-                history = history[-30:] # Rolling list of the last 30 nominal vectors
-                
-            recent_history.append({
-                "timestamp": telemetry.timestamp.isoformat(),
-                "voltage": telemetry.pack_voltage,
-                "temp": telemetry.pack_temp_c,
-                "deltaV": telemetry.cell_voltage_delta
-            })
-            recent_history = recent_history[-10:]
-            
-            payload_to_save = float_to_decimal({
-                "last_updated": telemetry.timestamp.isoformat(),
-                "status": status,
-                "soc": telemetry.state_of_charge,
-                "pack_voltage": telemetry.pack_voltage,
-                "pack_current": telemetry.pack_current,
-                "pack_temp": telemetry.pack_temp_c,
-                "cell_voltage_delta": telemetry.cell_voltage_delta,
-                "anomaly_score": anomaly_score,
-                "shap_drivers": shap_drivers,
-                "recent_history": recent_history,
-                "history_vectors": history,
-                "speed_mph": telemetry.speed_mph,
-                "gps_lat": telemetry.gps_lat,
-                "gps_lng": telemetry.gps_lng,
-            })
-            BaselineManager.update_baseline(vid, payload_to_save)
-            
-        except (ValidationError, json.JSONDecodeError) as e:
-            logger.error("Failed to parse record: %s", e)
-            failed_records.append({"record": record, "error": str(e)})
-        except Exception as e: # noqa: BLE001
-            logger.error("Error processing record for ML: %s", e)
-            failed_records.append({"record": record, "error": str(e)})
-
-    return {
-        "statusCode": 200,
-        "processed": len(valid_records),
-        "failed": len(failed_records),
-    }
+            # Sort UI payload to show the most critical contributing feature at the top
+            shap_drivers = sorted(shap_drivers, key=lambda k: k['impact'], reverse=True)
+        
+        # 4. Upsert persistent state to DynamoDB
+        db_item = json.loads(json.dumps({
+            "vin": payload['vehicle_id'],
+            "timestamp": payload['timestamp'],
+            "packVoltage": payload['pack_voltage'],
+            "packCurrent": payload['pack_current'],
+            "maxTemp": payload['pack_temp_c'],
+            "deltaV": payload['cell_voltage_delta'],
+            "status": status,
+            "score": anomaly_prob,
+            "shap": shap_drivers
+        }), parse_float=Decimal)
+        
+        table.put_item(Item=db_item)
+        print(f"[{status}] VIN: {payload['vehicle_id']} processed.")
+        
+    return {"statusCode": 200, "body": "Success"}
