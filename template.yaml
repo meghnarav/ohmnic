@@ -30,7 +30,6 @@ Resources:
       DockerContext: ./src
       DockerTag: python3.11-v1
     Properties:
-      FunctionName: ohmnic-anomaly-engine
       CodeUri: src/
       PackageType: Image
       Architectures:

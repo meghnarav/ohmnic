@@ -1,13 +1,14 @@
 import json
 import boto3
-import joblib
+import pickle
 import pandas as pd
 import shap
 from decimal import Decimal
 
 # Load into global scope to prevent reloading during Lambda warm starts
-MODEL_PATH = "isolation_forest_bms.joblib"
-detector = joblib.load(MODEL_PATH)
+MODEL_PATH = "isolation_forest_bms.pkl"
+with open(MODEL_PATH, 'rb') as f:
+    detector = pickle.load(f)
 explainer = shap.TreeExplainer(detector) 
 
 dynamodb = boto3.resource('dynamodb')
@@ -51,6 +52,7 @@ def process_telemetry(event, context):
         
         # 4. Upsert persistent state to DynamoDB
         db_item = json.loads(json.dumps({
+            "vehicle_id": payload['vehicle_id'],
             "vin": payload['vehicle_id'],
             "timestamp": payload['timestamp'],
             "packVoltage": payload['pack_voltage'],
@@ -66,3 +68,5 @@ def process_telemetry(event, context):
         print(f"[{status}] VIN: {payload['vehicle_id']} processed.")
         
     return {"statusCode": 200, "body": "Success"}
+
+handler = process_telemetry
