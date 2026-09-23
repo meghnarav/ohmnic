@@ -2,49 +2,49 @@ import React from 'react';
 import { VehicleRecord } from '@/app/page';
 
 export default function PackHeatmap({ vehicle }: { vehicle: VehicleRecord }) {
-    if (!vehicle) return null;
+    // Generate an 8x4 simulated cell grid based on the maxTemp and deltaV
+    const rows = 4;
+    const cols = 8;
+    const cells = Array.from({ length: rows * cols });
 
-    const blocks = Array.from({ length: 24 });
-    const temp = vehicle.maxTemp;
-    
-    // Determine color intensity based on temperature
-    const getBlockColor = (index: number) => {
-        // Base color Logic:
-        // Nominal (20-35C) -> Emerald / Cyan
-        // Warning (35-45C) -> Amber
-        // Critical (>45C) -> Red (#ff4876)
-        
-        // Add some visual noise based on index to make it look like distinct physical modules
-        const noise = (index % 3) * 1.5 - 1.5; 
-        const moduleTemp = temp + noise;
-
-        if (moduleTemp > 45) return 'bg-[#ff4876] shadow-[0_0_8px_#ff4876]';
-        if (moduleTemp > 35) return 'bg-[#F5A623]';
-        if (moduleTemp > 20) return 'bg-emerald-500';
-        return 'bg-[#06B6D4]'; // Too cold
-    };
+    // Find the theoretical "hot" cell block based on variance
+    const hotCellIndex = vehicle.status !== 'NOMINAL' ? Math.floor(Math.random() * cells.length) : -1;
 
     return (
-        <div className="bg-[#16181D] border border-[#242933] p-4 rounded h-full flex flex-col">
-            <div className="flex justify-between items-center mb-4">
-                <div className="text-[10px] text-gray-500 uppercase tracking-widest">Physical Pack Heatmap (24 Modules)</div>
-                <div className="text-[10px] text-gray-400 border border-[#242933] px-2 py-0.5 rounded">ΔV: {vehicle.deltaV.toFixed(3)}V</div>
+        <div className={`glass-card h-full rounded-xl p-4 flex flex-col relative overflow-hidden transition-all duration-300 ${vehicle.status === 'FAULT' ? 'border-[var(--color-accent-pink)]/40 bg-[var(--color-accent-pink)]/5' : 'border-white/5'}`}>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 border-b border-white/10 pb-2 flex justify-between">
+                <span>Thermal Map</span>
+                <span className="text-gray-600">Top Down</span>
+            </h2>
+            
+            <div className="flex-1 flex items-center justify-center p-2">
+                <div className="grid grid-cols-8 gap-1 w-full max-w-[200px] aspect-[2/1]">
+                    {cells.map((_, idx) => {
+                        let isHot = idx === hotCellIndex;
+                        let isWarm = !isHot && vehicle.status !== 'NOMINAL' && Math.abs(idx - hotCellIndex) <= 2;
+                        
+                        let bgColor = 'bg-white/10';
+                        if (isHot && vehicle.status === 'FAULT') bgColor = 'bg-[var(--color-accent-pink)] shadow-[0_0_8px_var(--color-accent-pink)] animate-pulse';
+                        else if (isHot && vehicle.status === 'WARN') bgColor = 'bg-[var(--color-accent-amber)] animate-pulse';
+                        else if (isWarm && vehicle.status === 'FAULT') bgColor = 'bg-[var(--color-accent-pink)]/40';
+                        else if (isWarm && vehicle.status === 'WARN') bgColor = 'bg-[var(--color-accent-amber)]/40';
+                        else if (vehicle.status === 'NOMINAL') bgColor = 'bg-[var(--color-accent-emerald)]/30';
+
+                        return (
+                            <div 
+                                key={idx} 
+                                className={`w-full pt-[100%] rounded-sm relative overflow-hidden transition-colors duration-1000 ${bgColor}`}
+                            >
+                                <div className="absolute inset-0 border border-black/20 rounded-sm"></div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
             
-            <div className="flex-1 grid grid-cols-6 grid-rows-4 gap-2 content-center">
-                {blocks.map((_, i) => (
-                    <div 
-                        key={i} 
-                        className={`w-full h-8 rounded-sm opacity-80 transition-colors duration-500 ${getBlockColor(i)} border border-black/50`}
-                    ></div>
-                ))}
-            </div>
-            
-            <div className="mt-4 flex justify-between text-[10px] text-gray-500">
-                <span>COOL (&lt;20°C)</span>
-                <span>NOMINAL (20-35°C)</span>
-                <span>WARN (35-45°C)</span>
-                <span className="text-[#ff4876]">CRITICAL (&gt;45°C)</span>
+            <div className="mt-2 flex justify-between text-[9px] text-gray-500 uppercase tracking-widest px-1 font-mono">
+                <span>FRONT</span>
+                <span>REAR</span>
             </div>
         </div>
     );

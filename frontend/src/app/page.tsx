@@ -88,16 +88,16 @@ export default function SCADAConsole() {
 
     if (loading && fleet.length === 0) {
         return (
-            <div className="flex h-screen w-screen items-center justify-center bg-[#0B0C0E] text-sm font-mono text-[#ff4876]">
+            <div className="flex h-screen w-screen items-center justify-center bg-transparent text-sm font-mono text-[#ff4876]">
                 INITIALIZING SCADA TELEMETRY UPLINK...
             </div>
         );
     }
 
     return (
-        <main className="flex h-screen w-screen flex-col bg-[#0B0C0E] font-mono text-gray-200 overflow-hidden select-none">
+        <main className="flex h-screen w-screen flex-col font-mono text-gray-200 overflow-hidden select-none bg-canvas">
             {/* Top Ribbon KPIs */}
-            <header className="flex h-16 items-center justify-between border-b border-[#242933] px-6 bg-[#0E1013]">
+            <header className="flex h-16 items-center justify-between border-b border-white/10 px-6 glass-panel z-20">
                 <div className="flex items-center space-x-6">
                     <div className="flex items-center space-x-2">
                         <Activity className="w-5 h-5 text-emerald-500" />
@@ -107,7 +107,7 @@ export default function SCADAConsole() {
                         </div>
                     </div>
                     
-                    <div className="w-px h-8 bg-[#242933]"></div>
+                    <div className="w-px h-8 bg-white/10"></div>
                     
                     <div className="flex items-center space-x-2">
                         <AlertTriangle className={`w-5 h-5 ${faultCount > 0 ? 'text-[#ff4876]' : 'text-gray-600'}`} />
@@ -117,7 +117,7 @@ export default function SCADAConsole() {
                         </div>
                     </div>
 
-                    <div className="w-px h-8 bg-[#242933]"></div>
+                    <div className="w-px h-8 bg-white/10"></div>
                     
                     <div className="flex items-center space-x-2">
                         <ShieldCheck className="w-5 h-5 text-[#06B6D4]" />
@@ -136,7 +136,7 @@ export default function SCADAConsole() {
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Left Panel: Alerts & Logs */}
-                <section className="w-1/4 min-w-[320px] flex flex-col border-r border-[#242933] bg-[#0E1013] p-4 space-y-4">
+                <section className="w-1/4 min-w-[320px] flex flex-col border-r border-[#242933] glass-panel rounded-r-xl p-4 space-y-4 shadow-xl">
                     <div className="flex-1 min-h-0">
                         <AlertsPanel fleet={fleet} />
                     </div>
@@ -146,8 +146,8 @@ export default function SCADAConsole() {
                 </section>
 
                 {/* Middle Panel: Fleet Operations */}
-                <section className="w-1/4 min-w-[320px] border-r border-[#242933] bg-[#0B0C0E] p-4 overflow-y-auto">
-                    <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 border-b border-[#242933] pb-2">
+                <section className="w-1/4 min-w-[320px] border-r border-white/5 bg-transparent p-4 overflow-y-auto">
+                    <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 border-b border-white/10 pb-2">
                         Asset Operations Grid
                     </h2>
                     {error && <div className="text-[10px] text-[#ff4876] bg-[#ff4876]/10 border border-[#ff4876]/30 p-2 rounded mb-2">{error}</div>}
@@ -155,10 +155,10 @@ export default function SCADAConsole() {
                 </section>
 
                 {/* Right Panel: Active Probe */}
-                <section className="flex-1 flex flex-col overflow-hidden bg-[#0E1013]">
+                <section className="flex-1 flex flex-col overflow-hidden bg-transparent">
                     {activeVehicle ? (
                         <div className="flex-1 flex flex-col overflow-hidden p-6 space-y-4">
-                            <div className="border-b border-[#242933] pb-2 flex justify-between items-end">
+                            <div className="border-b border-white/10 pb-2 flex justify-between items-end">
                                 <div>
                                     <h3 className="text-sm font-bold text-gray-100 flex items-center">
                                         <div className={`w-2 h-2 rounded-full mr-2 ${activeVehicle.status === 'FAULT' ? 'bg-[#ff4876] shadow-[0_0_8px_#ff4876]' : activeVehicle.status === 'WARN' ? 'bg-[#F5A623]' : 'bg-emerald-500'}`}></div>

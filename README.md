@@ -1,111 +1,75 @@
-# Ωhmnic
+# Ωhmnic (Ohmnic) 🔋
 
-> Cloud-native, explainable battery health and anomaly detection for EV fleets on AWS.
+Ωhmnic is an enterprise-grade, real-time Electric Vehicle (EV) battery health monitoring and Explainable AI (XAI) diagnostics platform. It replaces generic black-box anomaly scores with precise, frame-by-frame mathematical feature attribution (TreeSHAP).
 
-Most EV monitoring tools use static, fleet-wide thresholds to flag battery issues. Because lithium-ion degradation depends heavily on individual operating history, universal baselines create false alarms and miss early cell failures. **Ωhmnic** maintains per-vehicle adaptive baselines and translates mathematical outliers into root-cause engineering diagnostics using SHAP feature attribution.
-
----
-
-## Architecture
-
-* **Ingestion:** AWS Kinesis Data Streams handles high-velocity vehicle telemetry batches.
-* **Compute:** AWS Lambda (Python 3.11) validates payloads and extracts battery metrics.
-* **Baseline & State Store:** Amazon DynamoDB tracks rolling, vehicle-specific degradation signatures.
-* **Anomaly Engine:** Isolation Forests detect multi-dimensional metric drift (cell voltage delta, thermal gradients, fast-charge behavior).
-* **Explainability:** Kernel SHAP decomposes flagged anomalies into exact sensor contributions.
-
-
-```
-
-EV Telemetry ──► AWS Kinesis ──► AWS Lambda ──► DynamoDB (Per-Vehicle Baseline)
-│
-└──► Isolation Forest + SHAP
-│
-└──► Root-Cause Anomaly Alert
-
-```
+## Core Features
+* **Real-time Ingestion Firehose**: Simulated EV fleet and empirical NASA dataset streaming via AWS SQS FIFO.
+* **Serverless Machine Learning**: Dockerized AWS Lambda backend running a pre-trained `scikit-learn` Isolation Forest anomaly detection model.
+* **Millisecond XAI (TreeSHAP)**: Calculates Shapley Additive exPlanations on-the-fly to pinpoint exactly *why* a battery is failing (e.g. thermal runaway vs. cell voltage drift).
+* **Premium Glassmorphic Dashboard**: A high-performance Next.js React frontend rendering automated AI Triage Advisories and thermal matrices.
 
 ---
 
-## Telemetry Payload
+## System Architecture
 
-Sample payload accepted by the ingestion pipeline:
-
-```json
-{
-  "vehicle_id": "vin-ev-77209",
-  "timestamp": 1773402149,
-  "session_type": "DC_FAST_CHARGE",
-  "metrics": {
-    "state_of_charge": 74.2,
-    "pack_voltage": 398.6,
-    "pack_current": 142.5,
-    "pack_temp_c": 36.8,
-    "cell_voltage_delta": 0.142,
-    "max_cell_temp_c": 39.4,
-    "charge_rate_kw": 56.8
-  }
-}
-
+```text
++------------------------------------+
+|  1. Live EV Fleet Telemetry        |
+|  (scripts/simulate_fleet.py)       |
+|  NASA Cell & EV Pack Cycles Stream |
++-----------------+------------------+
+                  |
+                  v (Boto3 HTTPS)
++-----------------+------------------+
+|  2. AWS SQS FIFO Queue             |
+|  (ohmnic-battery-telemetry.fifo)   |
++-----------------+------------------+
+                  |
+                  v (Event Trigger)
++-----------------+------------------+
+|  3. AWS Lambda Container           |
+|  - isolation_forest_bms.pkl        |
+|  - shap.TreeExplainer              |
++-----------------+------------------+
+                  |
+                  v (Upsert Results)
++-----------------+------------------+
+|  4. AWS DynamoDB Table             |
+|  (ohmnic-vehicle-baselines)        |
++-----------------+------------------+
+                  |
+                  v (REST Polling)
++-----------------+------------------+
+|  5. Next.js React Dashboard        |
+|  (SCADA Glassmorphic Interface)    |
++------------------------------------+
 ```
 
----
+## Setup & Deployment
 
-## Quickstart
-
-### 1. Clone & Install
+### 1. Backend Infrastructure (AWS SAM)
+The backend is deployed via the AWS Serverless Application Model (SAM). The Lambda function requires a Docker image (`PackageType: Image`) because modern ML libraries (like SciPy and NumPy) require specific C-compiler environments that standard zip deployments lack.
 
 ```bash
-git clone https://github.com/meghnarav/ohmnic.git
-cd ohmnic
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+# Build the Docker container for Lambda
+sam build --use-container
 
+# Deploy to AWS
+sam deploy --resolve-image-repos --no-confirm-changeset
 ```
 
-### 2. Deploy Infrastructure to AWS
-
-Deploy the serverless backend using AWS SAM:
+### 2. Fleet Telemetry Simulation
+The system supports both single-cell (NASA Battery Dataset) and full pack-level synthetic telemetry. 
 
 ```bash
-sam build
-sam deploy --guided
+# Start sending telemetry to the AWS SQS queue
+python3 scripts/simulate_fleet.py --interval 1.0
 ```
 
-### 3. Deploy Frontend to Vercel
-
-The `frontend` directory is a Next.js application that can be deployed directly to Vercel. Connect your repository to Vercel and set the root directory to `frontend`.
-
-### 4. Run Tests & Validation
-
+### 3. Frontend SCADA Dashboard (Next.js)
 ```bash
-ruff check .
-pytest tests/ --cov=src
+cd frontend
+npm install
+npm run dev
 ```
-
----
-
-## Anomaly Output Example
-
-```json
-{
-  "vehicle_id": "vin-ev-77209",
-  "anomaly_flag": true,
-  "root_cause": "High cell voltage variance during DC fast charging",
-  "shap_attributions": {
-    "cell_voltage_delta": 0.521,
-    "max_cell_temp_c": 0.284,
-    "charge_rate_kw": 0.112
-  }
-}
-
-```
-
----
-
-## Copyright
-
-```
-Copyright © 2026 Meghna Ravikumar. All rights reserved. No part of this software may be reproduced or distributed without permission.
-```
+Navigate to `http://localhost:3000` to view the live SCADA command center.

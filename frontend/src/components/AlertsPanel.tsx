@@ -1,49 +1,44 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { VehicleRecord } from '@/app/page';
+import { Bell, AlertTriangle, Info } from 'lucide-react';
 
 export default function AlertsPanel({ fleet }: { fleet: VehicleRecord[] }) {
-    const [triageState, setTriageState] = useState<Record<string, 'ASSIGNED' | 'SNOOZED' | 'RESOLVED'>>({});
-
-    const criticalAlerts = fleet.filter((v) => v.status === 'FAULT' || v.status === 'WARN');
+    const alerts = fleet.filter(v => v.status === 'FAULT' || v.status === 'WARN');
 
     return (
-        <div className="h-full flex flex-col">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-[#ff4876] mb-4 border-b border-[#242933] pb-2">
-                Active Critical Alerts ({criticalAlerts.length})
-            </h2>
-            <div className="flex-1 overflow-y-auto space-y-3">
-                {criticalAlerts.length === 0 ? (
-                    <div className="text-xs text-gray-500">No active alerts. System Nominal.</div>
+        <div className="glass-card h-full flex flex-col rounded-xl overflow-hidden border-white/5">
+            <div className="border-b border-white/10 px-4 py-3 flex justify-between items-center bg-black/20">
+                <div className="flex items-center text-gray-200">
+                    <Bell className="w-4 h-4 mr-2 text-white" />
+                    <span className="text-xs font-bold uppercase tracking-widest">Active Alerts</span>
+                </div>
+                {alerts.length > 0 && (
+                    <span className="bg-[var(--color-accent-pink)]/20 text-[var(--color-accent-pink)] px-2 py-0.5 rounded-full text-[10px] font-bold border border-[var(--color-accent-pink)]/30 animate-pulse">
+                        {alerts.length} Critical
+                    </span>
+                )}
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {alerts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-2 opacity-50">
+                        <CheckCircle2 className="w-8 h-8 text-[var(--color-accent-emerald)]" />
+                        <span className="text-xs uppercase tracking-widest">No active alerts</span>
+                    </div>
                 ) : (
-                    criticalAlerts.map((v) => (
-                        <div key={v.vin} className={`p-3 border ${triageState[v.vin] ? 'opacity-50 border-[#242933] bg-[#0B0C0E]' : v.status === 'FAULT' ? 'border-[#ff4876] bg-[#16181D]' : 'border-[#F5A623] bg-[#16181D]'}`}>
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-bold text-gray-200">{v.vin}</span>
-                                <span className="text-[10px] text-[#ff4876]">{triageState[v.vin] || 'UNASSIGNED'}</span>
+                    alerts.map((alert, i) => (
+                        <div key={`${alert.vin}-${i}`} className="bg-black/40 border border-white/5 rounded-lg p-3 flex flex-col relative overflow-hidden animate-slide-in">
+                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${alert.status === 'FAULT' ? 'bg-[var(--color-accent-pink)]' : 'bg-[var(--color-accent-amber)]'}`} />
+                            <div className="flex items-start justify-between pl-2">
+                                <div className="flex items-center">
+                                    <AlertTriangle className={`w-3 h-3 mr-1.5 ${alert.status === 'FAULT' ? 'text-[var(--color-accent-pink)]' : 'text-[var(--color-accent-amber)]'}`} />
+                                    <span className="font-bold text-gray-200 text-xs tracking-wider">{alert.vin}</span>
+                                </div>
+                                <span className="text-[9px] text-gray-500 font-mono">JUST NOW</span>
                             </div>
-                            <div className="text-xs text-gray-400 mb-3">
-                                Pack Temp: {v.maxTemp.toFixed(1)}°C
-                            </div>
-                            
-                            <div className="flex space-x-2">
-                                <button 
-                                    onClick={() => setTriageState({ ...triageState, [v.vin]: 'ASSIGNED' })}
-                                    className="text-[10px] px-2 py-1 border border-[#06B6D4] text-[#06B6D4] hover:bg-[#06B6D4] hover:text-black"
-                                >
-                                    ASSIGN
-                                </button>
-                                <button 
-                                    onClick={() => setTriageState({ ...triageState, [v.vin]: 'SNOOZED' })}
-                                    className="text-[10px] px-2 py-1 border border-[#F5A623] text-[#F5A623] hover:bg-[#F5A623] hover:text-black"
-                                >
-                                    SNOOZE
-                                </button>
-                                <button 
-                                    onClick={() => setTriageState({ ...triageState, [v.vin]: 'RESOLVED' })}
-                                    className="text-[10px] px-2 py-1 border border-emerald-500 text-emerald-500 hover:bg-emerald-500 hover:text-black"
-                                >
-                                    RESOLVE
-                                </button>
+                            <div className="mt-1 pl-2 text-[10px] text-gray-400 font-sans leading-relaxed">
+                                {alert.status === 'FAULT' 
+                                    ? `Critical threshold exceeded. Health Score dropped to ${(100 - (alert.score * 100)).toFixed(1)}%. Immediate investigation required.`
+                                    : `Warning: Anomalous behavior detected. Max Temp at ${alert.maxTemp.toFixed(1)}°C.`}
                             </div>
                         </div>
                     ))
@@ -52,3 +47,4 @@ export default function AlertsPanel({ fleet }: { fleet: VehicleRecord[] }) {
         </div>
     );
 }
+import { CheckCircle2 } from 'lucide-react';

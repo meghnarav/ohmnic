@@ -1,50 +1,60 @@
 import React from 'react';
 import { VehicleRecord } from '@/app/page';
+import { ShieldAlert, ShieldCheck, Zap } from 'lucide-react';
 
 export default function AITriageAdvisory({ vehicle }: { vehicle: VehicleRecord }) {
-    if (!vehicle || vehicle.status === 'NOMINAL') {
-        return (
-            <div className="bg-[#16181D] border border-emerald-500/30 p-4 rounded h-full">
-                <div className="text-[10px] text-emerald-500 uppercase tracking-widest mb-2 flex items-center">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse mr-2"></div>
-                    AI Triage Advisory
-                </div>
-                <div className="text-sm text-gray-400 font-mono">
-                    System nominal. No critical actions recommended at this time. Routine balancing active.
-                </div>
-            </div>
-        );
-    }
+    if (!vehicle) return null;
 
-    const topDriver = vehicle.shap.length > 0 ? vehicle.shap[0].feature : 'Unknown';
-    let advisory = '';
+    const isCritical = vehicle.status === 'FAULT';
+    const isNominal = vehicle.status === 'NOMINAL' || !vehicle.shap || vehicle.shap.length === 0;
 
-    if (topDriver === 'pack_temp_c') {
-        advisory = "CRITICAL THERMAL EVENT DETECTED: Immediately throttle discharge rates and command cooling loop to max capacity. High risk of thermal runaway.";
-    } else if (topDriver === 'cell_voltage_delta') {
-        advisory = "SEVERE CELL IMBALANCE DETECTED: Schedule vehicle for depot service. Potential micro-short or uneven degradation across parallel strings.";
-    } else if (topDriver === 'pack_voltage') {
-        advisory = "UNDERVOLTAGE FAULT DETECTED: Isolate pack from load. Cell voltages approaching irreversible degradation thresholds.";
-    } else if (topDriver === 'pack_current') {
-        advisory = "OVERCURRENT LOAD FAULT: The inverter is pulling higher C-Rates than recommended for the current SoC/Temp envelope. Software limit required.";
-    } else {
-        advisory = "COMPOSITE ANOMALY: The Isolation Forest has flagged anomalous systemic behavior. Ground vehicle for manual telemetry review.";
+    let advisoryTitle = "NOMINAL OPERATION";
+    let advisoryText = "System is operating within normal safety thresholds. No anomaly detected.";
+    
+    if (!isNominal) {
+        const topDriver = vehicle.shap.reduce((prev, current) => (prev.impact > current.impact) ? prev : current);
+        if (topDriver.feature === 'deltaV') {
+            advisoryTitle = "CELL IMBALANCE DETECTED";
+            advisoryText = `High variance (${topDriver.observed} mV) detected across cell blocks. Recommend scheduling balancing routine.`;
+        } else if (topDriver.feature === 'maxTemp') {
+            advisoryTitle = "THERMAL RUNAWAY RISK";
+            advisoryText = `Core temperature (${topDriver.observed}°C) exceeds nominal limits. Throttle discharge rate immediately.`;
+        } else if (topDriver.feature === 'packCurrent') {
+            advisoryTitle = "ANOMALOUS LOAD DRAW";
+            advisoryText = `Unexpected current draw (${topDriver.observed} A). Check for short circuits or heavy unauthorized loads.`;
+        } else {
+            advisoryTitle = "VOLTAGE SAG DETECTED";
+            advisoryText = `Pack voltage (${topDriver.observed} V) has dropped unexpectedly. Inspect for damaged modules.`;
+        }
     }
 
     return (
-        <div className={`bg-[#0B0C0E] border p-4 rounded h-full ${vehicle.status === 'FAULT' ? 'border-[#ff4876] shadow-[0_0_15px_rgba(255,72,118,0.15)]' : 'border-[#F5A623]'}`}>
-            <div className={`text-[10px] uppercase tracking-widest mb-2 flex items-center ${vehicle.status === 'FAULT' ? 'text-[#ff4876]' : 'text-[#F5A623]'}`}>
-                <div className={`w-1.5 h-1.5 rounded-full animate-pulse mr-2 ${vehicle.status === 'FAULT' ? 'bg-[#ff4876]' : 'bg-[#F5A623]'}`}></div>
-                AI Triage Advisory [ACTION REQUIRED]
+        <div className={`glass-card h-full rounded-xl flex flex-col relative overflow-hidden p-5 ${isCritical ? 'border-[var(--color-accent-pink)]/40 bg-[var(--color-accent-pink)]/5' : 'border-white/5'}`}>
+            <div className="flex items-center mb-3">
+                {isCritical ? (
+                    <ShieldAlert className="w-5 h-5 mr-2 text-[var(--color-accent-pink)]" />
+                ) : (
+                    <ShieldCheck className="w-5 h-5 mr-2 text-[var(--color-accent-emerald)]" />
+                )}
+                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-200">AI Triage Advisory</h2>
             </div>
-            <div className="text-sm text-gray-200 font-mono leading-relaxed">
-                {advisory}
+            
+            <div className="flex-1 flex flex-col justify-center">
+                <div className={`text-sm font-bold mb-2 ${isCritical ? 'text-[var(--color-accent-pink)]' : isNominal ? 'text-[var(--color-accent-emerald)]' : 'text-[var(--color-accent-amber)]'}`}>
+                    {advisoryTitle}
+                </div>
+                <p className="text-xs text-gray-300 leading-relaxed font-sans">
+                    {advisoryText}
+                </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-[#242933] flex justify-between items-center text-[10px]">
-                <span className="text-gray-500">Root Cause Driver: <span className="text-gray-300 font-bold">{topDriver}</span></span>
-                <button className="bg-[#242933] hover:bg-gray-700 text-white px-3 py-1 rounded transition-colors">
-                    GENERATE TICKET
-                </button>
+            
+            <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+                <span className="text-[10px] text-gray-500 flex items-center">
+                    <Zap className="w-3 h-3 mr-1" /> Automated XAI Diagnosis
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded bg-black/40 ${isCritical ? 'text-[var(--color-accent-pink)] border border-[var(--color-accent-pink)]/20' : 'text-gray-400'}`}>
+                    {isCritical ? 'URGENT ACTION REQUIRED' : isNominal ? 'ALL CLEAR' : 'LOGGED'}
+                </span>
             </div>
         </div>
     );

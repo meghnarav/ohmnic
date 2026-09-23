@@ -1,36 +1,55 @@
 import React from 'react';
 import { VehicleRecord } from '@/app/page';
+import { Activity, Battery, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
-export default function FleetMatrix({ vehicles, selectedVin, onSelectVin }: { vehicles: VehicleRecord[], selectedVin: string | null, onSelectVin: (vin: string) => void }) {
+export default function FleetMatrix({ vehicles, selectedVin, onSelectVin }: { 
+    vehicles: VehicleRecord[], 
+    selectedVin: string | null,
+    onSelectVin: (vin: string) => void 
+}) {
+    if (vehicles.length === 0) {
+        return <div className="text-sm text-gray-500 italic">Awaiting telemetry...</div>;
+    }
+
     return (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center mb-4 pb-2 border-b border-[#242933]">
-                <span className="text-xs text-gray-400">Total Active Vehicles: {vehicles.length}</span>
-            </div>
+        <div className="grid grid-cols-1 gap-3">
+            {vehicles.map((v) => {
+                const isSelected = v.vin === selectedVin;
+                const isFault = v.status === 'FAULT';
+                const isWarn = v.status === 'WARN';
 
-            <div className="grid grid-cols-1 gap-2">
-                {vehicles.map((v) => {
-                    const prob = v.score * 100;
-                    return (
-                        <div 
-                            key={v.vin} 
-                            onClick={() => onSelectVin(v.vin)}
-                            className={`p-3 border cursor-pointer transition-colors ${selectedVin === v.vin ? 'bg-[#16181D] border-[#06B6D4]' : 'bg-[#0B0C0E] border-[#242933] hover:border-gray-500'}`}
-                        >
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm font-bold text-gray-200">{v.vin}</span>
-                                <span className={`text-[10px] px-2 py-0.5 font-bold ${v.status === 'FAULT' ? 'bg-[#ff4876] text-black' : v.status === 'WARN' ? 'bg-[#F5A623] text-black' : 'bg-[#242933] text-emerald-500'}`}>
-                                    {v.status}
-                                </span>
+                return (
+                    <div 
+                        key={v.vin} 
+                        onClick={() => onSelectVin(v.vin)}
+                        className={`glass-card cursor-pointer rounded-lg p-4 flex flex-col relative overflow-hidden transition-all duration-300 ${isSelected ? 'border-[var(--color-accent-cyan)] ring-1 ring-[var(--color-accent-cyan)]' : 'border-white/5'} ${isFault ? 'animate-pulse' : ''}`}
+                    >
+                        {/* Status glow strip */}
+                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${isFault ? 'bg-[var(--color-accent-pink)] shadow-[0_0_10px_var(--color-accent-pink)]' : isWarn ? 'bg-[var(--color-accent-amber)]' : 'bg-[var(--color-accent-emerald)]'}`} />
+                        
+                        <div className="flex justify-between items-start mb-2 pl-2">
+                            <div className="flex items-center space-x-2">
+                                {isFault ? <AlertTriangle className="w-4 h-4 text-[var(--color-accent-pink)]" /> : <CheckCircle2 className="w-4 h-4 text-[var(--color-accent-emerald)]" />}
+                                <span className="font-bold text-gray-200 tracking-wider text-sm">{v.vin}</span>
                             </div>
-                            <div className="mt-2 text-xs text-gray-500 flex justify-between">
-                                <span>Volt: {v.packVoltage.toFixed(1)}V</span>
-                                <span>Anomaly: {prob.toFixed(1)}%</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold tracking-widest ${isFault ? 'bg-[var(--color-accent-pink)]/20 text-[var(--color-accent-pink)]' : isWarn ? 'bg-[var(--color-accent-amber)]/20 text-[var(--color-accent-amber)]' : 'bg-[var(--color-accent-emerald)]/20 text-[var(--color-accent-emerald)]'}`}>
+                                {v.status}
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pl-2 mt-2">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-500 uppercase">Health Score</span>
+                                <span className={`text-lg font-mono font-bold ${isFault ? 'text-[var(--color-accent-pink)]' : 'text-gray-200'}`}>{(100 - (v.score * 100)).toFixed(1)}%</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-500 uppercase">Pack Temp</span>
+                                <span className="text-lg font-mono font-bold text-gray-300">{v.maxTemp.toFixed(1)}°C</span>
                             </div>
                         </div>
-                    );
-                })}
-            </div>
+                    </div>
+                );
+            })}
         </div>
     );
 }
