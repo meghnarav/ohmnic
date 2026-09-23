@@ -1,6 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import { VehicleRecord } from '@/app/page';
 
+function formatTimestamp(ts: string | number | undefined): string {
+  if (!ts) return new Date().toISOString();
+  const date = new Date(ts);
+  if (!isNaN(date.getTime())) return date.toISOString();
+  const dateFromSec = new Date(Number(ts) * 1000);
+  if (!isNaN(dateFromSec.getTime())) return dateFromSec.toISOString();
+  return String(ts);
+}
+
 export default function TelemetryLog({ fleet }: { fleet: VehicleRecord[] }) {
     const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -27,7 +36,7 @@ export default function TelemetryLog({ fleet }: { fleet: VehicleRecord[] }) {
                 ) : (
                     fleet.map((v, i) => (
                         <div key={`${v.vin}-${v.timestamp}-${i}`} className="break-all border-b border-[#16181D] pb-1">
-                            <span className="text-emerald-500">[{new Date(v.timestamp * 1000).toISOString()}]</span>{' '}
+                            <span className="text-emerald-500">[{formatTimestamp(v.timestamp)}]</span>{' '}
                             <span className="text-[#06B6D4]">INFO</span>{' '}
                             <span className="text-gray-300">VIN:{v.vin}</span>{' '}
                             {' => '} {`{"packVoltage":${v.packVoltage},"packCurrent":${v.packCurrent},"maxTemp":${v.maxTemp},"deltaV":${v.deltaV},"status":"${v.status}","score":${v.score}}`}

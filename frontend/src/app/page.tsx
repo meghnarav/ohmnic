@@ -11,6 +11,15 @@ import PackHeatmap from '@/components/PackHeatmap';
 import AITriageAdvisory from '@/components/AITriageAdvisory';
 import { Activity, AlertTriangle, ShieldCheck } from 'lucide-react';
 
+function formatTimestamp(ts: string | number | undefined): string {
+  if (!ts) return new Date().toISOString();
+  const date = new Date(ts);
+  if (!isNaN(date.getTime())) return date.toISOString();
+  const dateFromSec = new Date(Number(ts) * 1000);
+  if (!isNaN(dateFromSec.getTime())) return dateFromSec.toISOString();
+  return String(ts);
+}
+
 export interface ShapDriver {
     feature: string;
     impact: number;
@@ -19,7 +28,7 @@ export interface ShapDriver {
 
 export interface VehicleRecord {
     vin: string;
-    timestamp: number;
+    timestamp: string | number;
     packVoltage: number;
     packCurrent: number;
     maxTemp: number;
@@ -155,7 +164,7 @@ export default function SCADAConsole() {
                                         <div className={`w-2 h-2 rounded-full mr-2 ${activeVehicle.status === 'FAULT' ? 'bg-[#ff4876] shadow-[0_0_8px_#ff4876]' : activeVehicle.status === 'WARN' ? 'bg-[#F5A623]' : 'bg-emerald-500'}`}></div>
                                         DIAGNOSTICS PROBE: {activeVehicle.vin}
                                     </h3>
-                                    <p className="text-[10px] text-gray-500 mt-1 uppercase">LAST INGESTION: {new Date(activeVehicle.timestamp * 1000).toISOString()}</p>
+                                    <p className="text-[10px] text-gray-500 mt-1 uppercase">LAST INGESTION: {formatTimestamp(activeVehicle.timestamp)}</p>
                                 </div>
                             </div>
 
