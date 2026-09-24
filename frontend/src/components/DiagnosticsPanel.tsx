@@ -2,47 +2,30 @@ import React from 'react';
 import { VehicleRecord } from '@/app/page';
 import { Battery, Zap, Thermometer, Activity } from 'lucide-react';
 
-const CircularProgress = ({ value, max, label, color, unit, icon: Icon }: any) => {
-    const radius = 30;
-    const circumference = 2 * Math.PI * radius;
-    // Cap progress at 100% so gauge doesn't overflow visually
+const BlockyProgress = ({ value, max, label, color, unit, icon: Icon }: any) => {
     const progress = Math.min((value / max) * 100, 100);
-    const strokeDashoffset = circumference - (progress / 100) * circumference;
 
     return (
-        <div className="flex flex-col items-center justify-center p-2">
-            <div className="relative w-20 h-20 flex items-center justify-center">
-                <svg className="transform -rotate-90 w-20 h-20">
-                    <circle cx="40" cy="40" r="30" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="transparent" />
-                    <circle 
-                        cx="40" 
-                        cy="40" 
-                        r="30" 
-                        stroke={color} 
-                        strokeWidth="4" 
-                        fill="transparent" 
-                        strokeDasharray={circumference} 
-                        strokeDashoffset={strokeDashoffset} 
-                        className="transition-all duration-500 ease-out"
-                    />
-                </svg>
-                <div className="absolute flex flex-col items-center justify-center">
-                    <Icon className="w-4 h-4 mb-0.5" style={{ color }} />
-                    <span className="text-xs font-bold text-gray-200">{value}</span>
-                </div>
+        <div className="flex flex-col border-4 border-black p-2 bg-white shadow-[4px_4px_0_0_#111] min-w-[120px]">
+            <div className="flex items-center justify-between mb-2">
+                <Icon className="w-5 h-5 text-black" strokeWidth={2.5} />
+                <span className="font-heading text-lg text-black">{value}</span>
             </div>
-            <span className="text-[10px] text-gray-500 uppercase tracking-widest mt-2 text-center flex flex-col">
-                <span>{label}</span>
-                <span className="text-[#6B7280]">({unit})</span>
-            </span>
+            <div className="w-full h-4 border-2 border-black bg-gray-100 overflow-hidden relative">
+                <div 
+                    className="absolute top-0 bottom-0 left-0 border-r-2 border-black" 
+                    style={{ width: `${progress}%`, backgroundColor: color }}
+                />
+            </div>
+            <div className="mt-2 text-left flex justify-between items-end">
+                <span className="text-[9px] font-mono font-bold uppercase text-black max-w-[60%] leading-tight">{label}</span>
+                <span className="text-[9px] font-mono font-bold text-gray-500">[{unit}]</span>
+            </div>
         </div>
     );
 };
 
 export default function DiagnosticsPanel({ vehicle }: { vehicle: VehicleRecord }) {
-    const isFault = vehicle.status === 'FAULT';
-
-    // Detect if this is a single cell (NASA) or full EV Pack telemetry frame
     const isSingleCell = vehicle.packVoltage < 10;
     
     const maxVoltage = isSingleCell ? 4.5 : 450;
@@ -53,46 +36,46 @@ export default function DiagnosticsPanel({ vehicle }: { vehicle: VehicleRecord }
     const isCurrentHigh = isSingleCell ? absCurrent > 3.0 : absCurrent > 150;
 
     return (
-        <div className={`glass-card h-full rounded-xl p-4 flex flex-col relative overflow-hidden transition-all duration-300 ${isFault ? 'border-[var(--color-accent-pink)]/50' : 'border-white/5'}`}>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 flex justify-between">
-                <span>Core Telemetry Gauges</span>
-                <span className="text-gray-600 text-[10px]">Real-time ({isSingleCell ? 'Cell-Level' : 'Pack-Level'})</span>
+        <div className="h-full flex flex-col p-4 bg-[var(--color-canvas)]">
+            <h2 className="text-xl font-heading text-black mb-4 border-b-4 border-black pb-2 flex justify-between items-center">
+                <span>GAUGES</span>
+                <span className="text-[10px] font-mono bg-black text-white px-2 py-1">[{isSingleCell ? 'CELL' : 'PACK'}]</span>
             </h2>
             
-            <div className="flex-1 flex items-center justify-around">
-                <CircularProgress 
+            <div className="flex-1 grid grid-cols-2 gap-4">
+                <BlockyProgress 
                     value={vehicle.packVoltage.toFixed(1)} 
                     max={maxVoltage} 
-                    label={isSingleCell ? "Cell Voltage" : "Pack Voltage"} 
-                    unit="Volts"
+                    label={isSingleCell ? "Cell Volts" : "Pack Volts"} 
+                    unit="V"
                     color="var(--color-accent-emerald)" 
                     icon={Zap}
                 />
                 
-                <CircularProgress 
+                <BlockyProgress 
                     value={absCurrent.toFixed(1)} 
                     max={maxCurrent} 
-                    label="Current Draw" 
-                    unit="Amps"
+                    label="Current" 
+                    unit="A"
                     color={isCurrentHigh ? 'var(--color-accent-amber)' : 'var(--color-accent-cyan)'} 
                     icon={Activity}
                 />
                 
-                <CircularProgress 
+                <BlockyProgress 
                     value={vehicle.maxTemp.toFixed(1)} 
                     max={maxTemp} 
-                    label="Max Core Temp" 
+                    label="Core Temp" 
                     unit="°C"
-                    color={vehicle.maxTemp > 50 ? 'var(--color-accent-pink)' : 'var(--color-accent-emerald)'} 
+                    color={vehicle.maxTemp > 50 ? 'var(--color-accent-pink)' : 'var(--color-accent-amber)'} 
                     icon={Thermometer}
                 />
 
-                <CircularProgress 
+                <BlockyProgress 
                     value={vehicle.deltaV.toFixed(1)} 
                     max={isSingleCell ? 0.05 : 150} 
-                    label="Cell Imbalance" 
-                    unit={isSingleCell ? "Volts" : "mV Delta"}
-                    color={vehicle.deltaV > (isSingleCell ? 0.03 : 80) ? 'var(--color-accent-pink)' : 'var(--color-accent-amber)'} 
+                    label="Imbalance" 
+                    unit={isSingleCell ? "V" : "mV"}
+                    color={vehicle.deltaV > (isSingleCell ? 0.03 : 80) ? 'var(--color-accent-pink)' : 'var(--color-accent-emerald)'} 
                     icon={Battery}
                 />
             </div>
