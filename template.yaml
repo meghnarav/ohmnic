@@ -51,3 +51,39 @@ Resources:
           Properties:
             Queue: !GetAtt BatteryTelemetryQueue.Arn
             BatchSize: 10
+  OhmnicUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: ohmnic-users
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+
+  OhmnicUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref OhmnicUserPool
+      ClientName: ohmnic-web-client
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+Outputs:
+  UserPoolId:
+    Description: "Cognito User Pool ID"
+    Value: !Ref OhmnicUserPool
+  UserPoolClientId:
+    Description: "Cognito User Pool Client ID"
+    Value: !Ref OhmnicUserPoolClient
+  Region:
+    Description: "AWS Region"
+    Value: !Ref AWS::Region
