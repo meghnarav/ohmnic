@@ -1,6 +1,5 @@
 // frontend/src/app/api/vehicles/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 
@@ -10,8 +9,6 @@ const TABLE_NAME = process.env.DYNAMODB_TABLE || 'ohmnic-vehicle-baselines';
 
 export async function POST(request: Request) {
     try {
-        const session = await auth();
-        if (!session.userId) return NextResponse.json({ error: 'Unauthorized access request.' }, { status: 401 });
 
         const { vin, depot } = await request.json();
         if (!vin || !depot) return NextResponse.json({ error: 'Missing target VIN or Depot.' }, { status: 400 });
@@ -31,7 +28,7 @@ export async function POST(request: Request) {
             }
         };
 
-        await docClient.send(new PutCommand({ TableName: TABLE_NAME, Item: newAsset }));
+        await (docClient as any).send(new PutCommand({ TableName: TABLE_NAME, Item: newAsset }));
         return NextResponse.json({ success: true, message: `Asset ${vin} successfully commissioned.` });
     } catch (err: any) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -40,14 +37,12 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
     try {
-        const session = await auth();
-        if (!session.userId) return NextResponse.json({ error: 'Unauthorized access request.' }, { status: 401 });
 
         const { searchParams } = new URL(request.url);
         const vin = searchParams.get('vin');
         if (!vin) return NextResponse.json({ error: 'Missing target decommissioning VIN.' }, { status: 400 });
 
-        await docClient.send(new DeleteCommand({ TableName: TABLE_NAME, Key: { vin } }));
+        await (docClient as any).send(new DeleteCommand({ TableName: TABLE_NAME, Key: { vin } }));
         return NextResponse.json({ success: true, message: `Asset ${vin} purged from live matrix.` });
     } catch (err: any) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 });

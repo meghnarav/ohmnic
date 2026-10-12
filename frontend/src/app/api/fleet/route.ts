@@ -12,7 +12,7 @@ const TABLE_NAME = process.env.DYNAMODB_TABLE || 'ohmnic-vehicle-baselines';
 
 export async function GET() {
     try {
-        const response = await docClient.send(new ScanCommand({ TableName: TABLE_NAME }));
+        const response = await (docClient as any).send(new ScanCommand({ TableName: TABLE_NAME }));
         return NextResponse.json({ success: true, data: response.Items || [] }, { status: 200 });
     } catch (error: any) {
         console.error('DynamoDB Fleet Pipeline Query Execution Error:', error);

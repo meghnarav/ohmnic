@@ -25,7 +25,7 @@ export async function GET(req: Request) {
 
             while (!isClosed) {
                 try {
-                    const response = await docClient.send(new ScanCommand({ TableName: TABLE_NAME }));
+                    const response = await (docClient as any).send(new ScanCommand({ TableName: TABLE_NAME }));
                     const data = JSON.stringify({ success: true, data: response.Items || [] });
                     controller.enqueue(encoder.encode(`data: ${data}\n\n`));
                 } catch (error) {
