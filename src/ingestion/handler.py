@@ -1,9 +1,10 @@
 import json
-import boto3
 import pickle
+from decimal import Decimal
+
+import boto3
 import pandas as pd
 import shap
-from decimal import Decimal
 
 # Load into global scope to prevent reloading during Lambda warm starts
 MODEL_PATH = "isolation_forest_bms.pkl"

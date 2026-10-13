@@ -1,14 +1,15 @@
-import os
-import glob
-import json
 import argparse
+import json
+import os
+
 import numpy as np
 from scipy.io import loadmat
+
 
 def extract_mat_to_json(mat_path, output_dir):
     try:
         mat_data = loadmat(mat_path)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Failed to load {mat_path}: {e}")
         return
 
@@ -27,7 +28,7 @@ def extract_mat_to_json(mat_path, output_dir):
             data = mat_data[dataset_name]['cycle'][0][0][0]
         else:
             # Try to find the main struct key dynamically
-            keys = [k for k in mat_data.keys() if not k.startswith('__')]
+            keys = [k for k in mat_data if not k.startswith('__')]
             if not keys:
                 return
             data = mat_data[keys[0]]['cycle'][0][0][0]
@@ -69,7 +70,7 @@ def extract_mat_to_json(mat_path, output_dir):
             
         print(f"Successfully wrote {len(telemetry_rows)} telemetry points to {out_filename}")
         
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Struct parsing error on {basename}: {e}")
 
 def main():

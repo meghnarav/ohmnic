@@ -1,11 +1,12 @@
 import argparse
+import asyncio
+import concurrent.futures
 import json
 import time
 import uuid
-import boto3
-import asyncio
-import concurrent.futures
 from datetime import datetime, timezone
+
+import boto3
 
 QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/970722351156/ohmnic-battery-telemetry.fifo"
 BUCKET_NAME = 'ohmnic-empirical-datasets-unique-id'
@@ -45,7 +46,7 @@ async def simulate_vehicle(vid, key, interval, executor):
     # Download synchronously but off the main event loop
     try:
         data = await loop.run_in_executor(executor, download_file, key)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Error downloading {key}: {e}")
         return
 
