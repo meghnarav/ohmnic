@@ -1,5 +1,7 @@
 # Ωhmnic (Ohmnic) 🔋
 
+> 🌐 **Live Production SCADA Dashboard:** [https://ohmnic.vercel.app](https://ohmnic.vercel.app)
+
 Ωhmnic is an enterprise-grade, real-time Electric Vehicle (EV) battery health monitoring and Explainable AI (XAI) diagnostics platform. It replaces generic black-box anomaly scores with precise, frame-by-frame mathematical feature attribution (TreeSHAP).
 
 ## Core Features
