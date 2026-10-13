@@ -8,7 +8,7 @@ import AlertsPanel from '@/components/AlertsPanel';
 import TelemetryLog from '@/components/TelemetryLog';
 import PackHeatmap from '@/components/PackHeatmap';
 import AITriageAdvisory from '@/components/AITriageAdvisory';
-import { Activity, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Activity, AlertTriangle, ShieldCheck, Grid, Zap, Layers } from 'lucide-react';
 
 function formatTimestamp(ts: string | number | undefined): string {
     if (!ts) return new Date().toISOString();
@@ -43,6 +43,8 @@ export default function SCADAConsole() {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [telemetryLogs, setTelemetryLogs] = useState<VehicleRecord[]>([]);
+    const [probeView, setProbeView] = useState<'gauges' | 'thermal' | 'split'>('gauges');
+    const [filterStatus, setFilterStatus] = useState<'ALL' | 'CRITICAL' | 'NOMINAL'>('ALL');
 
     useEffect(() => {
         const fetchFleet = async () => {
@@ -61,26 +63,38 @@ export default function SCADAConsole() {
                         return newLogs;
                     });
 
-                    // Auto-select first if none selected
-                    setSelectedVin(current => current || data.data[0].vin);
-                    setLoading(false);
+                    // Auto-select first anomaly, or first vehicle if none selected
+                    setSelectedVin(current => {
+                        if (current) return current;
+                        const anomaly = data.data.find((v: VehicleRecord) => v.status === 'FAULT' || v.status === 'WARN');
+                        return anomaly ? anomaly.vin : data.data[0].vin;
+                    });
                 }
             } catch (err: any) {
-                setError(err.message);
+                console.error('Fleet query failure:', err);
+                setError('Failed to poll DynamoDB telemetry stream.');
+                setLoading(false);
             }
         };
 
-        const interval = setInterval(fetchFleet, 1000);
-        return () => clearInterval(interval);
+        fetchFleet();
+        const pollTimer = setInterval(fetchFleet, 5000);
+        return () => clearInterval(pollTimer);
     }, []);
 
     const activeVehicle = fleet.find((v) => v.vin === selectedVin) || null;
     const faultCount = fleet.filter(v => v.status === 'FAULT' || v.status === 'WARN').length;
     const systemHealth = fleet.length > 0 ? (100 - (faultCount / fleet.length) * 100).toFixed(1) : '100.0';
 
+    const filteredFleet = fleet.filter(v => {
+        if (filterStatus === 'CRITICAL') return v.status === 'FAULT' || v.status === 'WARN';
+        if (filterStatus === 'NOMINAL') return v.status === 'NOMINAL';
+        return true;
+    });
+
     if (loading && fleet.length === 0) {
         return (
-            <div className="flex h-screen w-screen items-center justify-center bg-[var(--color-canvas)] font-heading text-4xl text-[var(--color-border-dark)] font-black">
+            <div className="flex min-h-screen w-full items-center justify-center bg-[var(--color-canvas)] font-heading text-4xl text-[var(--color-border-dark)] font-black">
                 <div className="neo-card p-8 bg-[var(--color-accent-amber)] animate-pulse">
                     BOOTING UP ΩHMNIC_
                 </div>
@@ -89,10 +103,10 @@ export default function SCADAConsole() {
     }
 
     return (
-        <main className="flex h-screen w-screen flex-col overflow-hidden select-none">
+        <main className="min-h-screen w-full flex flex-col bg-[var(--color-canvas)] text-[var(--color-text-primary)]">
             {/* Top Ribbon KPIs */}
-            <header className="flex h-16 items-center justify-between border-b-4 border-[var(--color-border-dark)] px-6 bg-[var(--color-accent-amber)] shadow-[0_4px_0_0_#111] z-20 shrink-0">
-                <div className="flex items-center space-x-8">
+            <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center justify-between border-b-4 border-[var(--color-border-dark)] px-6 py-2 bg-[var(--color-accent-amber)] shadow-[0_4px_0_0_#111]">
+                <div className="flex flex-wrap items-center gap-4 sm:gap-8">
                     <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 border-2 border-[var(--color-border-dark)] bg-white flex items-center justify-center shadow-[2px_2px_0_0_#111]">
                             <Activity className="w-6 h-6 text-[var(--color-border-dark)]" strokeWidth={3} />
@@ -103,7 +117,7 @@ export default function SCADAConsole() {
                         </div>
                     </div>
 
-                    <div className="w-1 h-10 bg-[var(--color-border-dark)]"></div>
+                    <div className="hidden sm:block w-1 h-8 bg-[var(--color-border-dark)]" />
 
                     <div className="flex items-center space-x-3">
                         <div className={`w-10 h-10 border-2 border-[var(--color-border-dark)] flex items-center justify-center shadow-[2px_2px_0_0_#111] ${faultCount > 0 ? 'bg-[var(--color-accent-pink)]' : 'bg-white'}`}>
@@ -115,7 +129,7 @@ export default function SCADAConsole() {
                         </div>
                     </div>
 
-                    <div className="w-1 h-10 bg-[var(--color-border-dark)]"></div>
+                    <div className="hidden sm:block w-1 h-8 bg-[var(--color-border-dark)]" />
 
                     <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 border-2 border-[var(--color-border-dark)] bg-[var(--color-accent-emerald)] flex items-center justify-center shadow-[2px_2px_0_0_#111]">
@@ -128,76 +142,154 @@ export default function SCADAConsole() {
                     </div>
                 </div>
 
-                <div className="flex items-center space-x-3 border-4 border-[var(--color-border-dark)] bg-white px-4 py-1 shadow-[2px_2px_0_0_#111]">
+                <div className="flex items-center space-x-3 border-4 border-[var(--color-border-dark)] bg-white px-4 py-1.5 shadow-[2px_2px_0_0_#111] mt-2 sm:mt-0">
                     <span className="text-sm font-heading tracking-wider text-[var(--color-border-dark)]">ΩHMNIC SCADA</span>
                     <div className="h-3 w-3 border-2 border-black bg-[var(--color-accent-emerald)] animate-pulse" />
                 </div>
             </header>
 
-            <div className="flex flex-1 overflow-hidden p-4 space-x-4">
-                {/* Left Panel: Alerts & Logs */}
-                <section className="w-1/4 min-w-[320px] flex flex-col space-y-4">
-                    <div className="flex-1 min-h-0 neo-card overflow-hidden">
+            {/* Scrollable Main Multi-Column Console */}
+            <div className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* Column 1: Live Tickets & Event Stream (lg:col-span-3) */}
+                <section className="lg:col-span-3 flex flex-col gap-4">
+                    <div className="neo-card h-[340px] overflow-hidden flex flex-col">
                         <AlertsPanel fleet={fleet} />
                     </div>
-                    <div className="h-1/3 min-h-[200px] neo-card overflow-hidden bg-black text-white">
+                    <div className="neo-card h-[290px] overflow-hidden bg-black text-white flex flex-col">
                         <TelemetryLog fleet={telemetryLogs} />
                     </div>
                 </section>
 
-                {/* Middle Panel: Fleet Operations */}
-                <section className="w-1/4 min-w-[320px] neo-card bg-white p-4 flex flex-col overflow-hidden">
-                    <h2 className="text-xl font-heading text-[var(--color-border-dark)] mb-4 border-b-4 border-[var(--color-border-dark)] pb-2 flex justify-between items-center">
-                        ASSET GRID
-                        <span className="text-xs font-mono bg-black text-white px-2 py-1">LIVE</span>
-                    </h2>
-                    {error && <div className="text-sm font-bold border-4 border-black bg-[var(--color-accent-pink)] text-black p-2 mb-4 shadow-[2px_2px_0_0_#111]">{error}</div>}
-                    <div className="flex-1 overflow-y-auto pr-2">
-                        <FleetMatrix vehicles={fleet} selectedVin={selectedVin} onSelectVin={setSelectedVin} />
+                {/* Column 2: Fleet Matrix Asset Grid (lg:col-span-3) */}
+                <section className="lg:col-span-3 neo-card bg-white p-4 flex flex-col h-[646px]">
+                    <div className="border-b-4 border-[var(--color-border-dark)] pb-2 mb-3">
+                        <div className="flex justify-between items-center mb-2">
+                            <h2 className="text-xl font-heading text-[var(--color-border-dark)]">ASSET GRID</h2>
+                            <span className="text-xs font-mono bg-black text-white px-2 py-0.5 font-bold">LIVE</span>
+                        </div>
+                        {/* Status Filter Badges */}
+                        <div className="flex gap-1">
+                            <button 
+                                onClick={() => setFilterStatus('ALL')}
+                                className={`text-[9px] font-mono font-bold px-2 py-0.5 border-2 border-black transition-all ${filterStatus === 'ALL' ? 'bg-black text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+                            >
+                                ALL ({fleet.length})
+                            </button>
+                            <button 
+                                onClick={() => setFilterStatus('CRITICAL')}
+                                className={`text-[9px] font-mono font-bold px-2 py-0.5 border-2 border-black transition-all ${filterStatus === 'CRITICAL' ? 'bg-[var(--color-accent-pink)] text-black' : 'bg-gray-100 hover:bg-gray-200'}`}
+                            >
+                                ALERTS ({faultCount})
+                            </button>
+                            <button 
+                                onClick={() => setFilterStatus('NOMINAL')}
+                                className={`text-[9px] font-mono font-bold px-2 py-0.5 border-2 border-black transition-all ${filterStatus === 'NOMINAL' ? 'bg-[var(--color-accent-emerald)] text-black' : 'bg-gray-100 hover:bg-gray-200'}`}
+                            >
+                                NOMINAL ({fleet.length - faultCount})
+                            </button>
+                        </div>
+                    </div>
+
+                    {error && <div className="text-xs font-bold border-2 border-black bg-[var(--color-accent-pink)] text-black p-2 mb-3">{error}</div>}
+
+                    <div className="flex-1 overflow-y-auto pr-1">
+                        <FleetMatrix vehicles={filteredFleet} selectedVin={selectedVin} onSelectVin={setSelectedVin} />
                     </div>
                 </section>
 
-                {/* Right Panel: Active Probe */}
-                <section className="flex-1 flex flex-col min-w-0">
+                {/* Column 3: Active Vehicle Probe Deep Dive (lg:col-span-6) */}
+                <section className="lg:col-span-6 flex flex-col gap-4 min-w-0">
                     {activeVehicle ? (
-                        <div className="flex-1 flex flex-col space-y-4 min-h-0">
-                            <div className="neo-card bg-[var(--color-accent-blue)] p-4 flex justify-between items-end shrink-0">
+                        <div className="flex flex-col gap-4">
+                            {/* Probe Banner with View Mode Selector */}
+                            <div className="neo-card bg-[var(--color-accent-blue)] p-4 flex flex-wrap justify-between items-center gap-3">
                                 <div>
                                     <h3 className="text-2xl font-heading text-white flex items-center uppercase tracking-tight">
-                                        <div className={`w-4 h-4 border-2 border-white mr-3 ${activeVehicle.status === 'FAULT' ? 'bg-[var(--color-accent-pink)]' : activeVehicle.status === 'WARN' ? 'bg-[var(--color-accent-amber)]' : 'bg-[var(--color-accent-emerald)]'}`}></div>
+                                        <div className={`w-4 h-4 border-2 border-white mr-3 ${activeVehicle.status === 'FAULT' ? 'bg-[var(--color-accent-pink)] animate-ping' : activeVehicle.status === 'WARN' ? 'bg-[var(--color-accent-amber)]' : 'bg-[var(--color-accent-emerald)]'}`} />
                                         PROBE: {activeVehicle.vin}
                                     </h3>
-                                    <p className="text-xs font-mono text-white/80 mt-1 uppercase font-bold bg-black/20 inline-block px-2 py-1 border border-white/20">LAST_TX: {formatTimestamp(activeVehicle.timestamp)}</p>
+                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                        <span className="text-[10px] font-mono text-white/90 uppercase font-bold bg-black/40 inline-block px-2 py-0.5 border border-white/20">
+                                            LAST_TX: {formatTimestamp(activeVehicle.timestamp)}
+                                        </span>
+                                        <span className="text-[10px] font-mono text-white/90 uppercase font-bold bg-black/40 inline-block px-2 py-0.5 border border-white/20">
+                                            HEALTH: {(100 - (activeVehicle.score * 100)).toFixed(1)}%
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* View Switcher Buttons */}
+                                <div className="flex items-center border-4 border-black bg-white p-1 shadow-[3px_3px_0_0_#111] space-x-1">
+                                    <button 
+                                        onClick={() => setProbeView('gauges')}
+                                        className={`px-3 py-1 text-xs font-heading tracking-wider uppercase transition-all flex items-center ${probeView === 'gauges' ? 'bg-[var(--color-accent-amber)] text-black border-2 border-black font-black shadow-[2px_2px_0_0_#111]' : 'text-gray-700 hover:text-black font-bold'}`}
+                                    >
+                                        <Zap className="w-3.5 h-3.5 mr-1" /> Gauges
+                                    </button>
+                                    <button 
+                                        onClick={() => setProbeView('thermal')}
+                                        className={`px-3 py-1 text-xs font-heading tracking-wider uppercase transition-all flex items-center ${probeView === 'thermal' ? 'bg-[var(--color-accent-pink)] text-white border-2 border-black font-black shadow-[2px_2px_0_0_#111]' : 'text-gray-700 hover:text-black font-bold'}`}
+                                    >
+                                        <Grid className="w-3.5 h-3.5 mr-1" /> Thermal Map
+                                    </button>
+                                    <button 
+                                        onClick={() => setProbeView('split')}
+                                        className={`px-3 py-1 text-xs font-heading tracking-wider uppercase transition-all flex items-center ${probeView === 'split' ? 'bg-[var(--color-accent-emerald)] text-black border-2 border-black font-black shadow-[2px_2px_0_0_#111]' : 'text-gray-700 hover:text-black font-bold'}`}
+                                    >
+                                        <Layers className="w-3.5 h-3.5 mr-1" /> Dual View
+                                    </button>
                                 </div>
                             </div>
 
-                            {/* Top Row: Metrics and Heatmap */}
-                            <div className="flex h-[35%] min-h-[220px] space-x-4 shrink-0">
-                                <div className="flex-1 min-w-0 neo-card bg-white overflow-hidden">
-                                    <DiagnosticsPanel vehicle={activeVehicle} />
+                            {/* Top Section: Gauges / Thermal Matrix (Spacious & Clean) */}
+                            {probeView === 'gauges' && (
+                                <div className="neo-card bg-white min-h-[260px] overflow-hidden">
+                                    <DiagnosticsPanel 
+                                        vehicle={activeVehicle} 
+                                        onSwitchToThermal={() => setProbeView('thermal')} 
+                                    />
                                 </div>
-                                <div className="w-[35%] min-w-[200px] neo-card bg-white overflow-hidden">
-                                    <PackHeatmap vehicle={activeVehicle} />
-                                </div>
-                            </div>
+                            )}
 
-                            {/* Bottom Row: AI Triage and TreeSHAP */}
-                            <div className="flex flex-1 space-x-4 min-h-0">
-                                <div className="w-[40%] min-w-[250px] neo-card bg-white overflow-hidden">
+                            {probeView === 'thermal' && (
+                                <div className="neo-card bg-white min-h-[260px] overflow-hidden">
+                                    <PackHeatmap 
+                                        vehicle={activeVehicle} 
+                                        onSwitchToGauges={() => setProbeView('gauges')} 
+                                    />
+                                </div>
+                            )}
+
+                            {probeView === 'split' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="neo-card bg-white min-h-[260px] overflow-hidden">
+                                        <DiagnosticsPanel vehicle={activeVehicle} />
+                                    </div>
+                                    <div className="neo-card bg-white min-h-[260px] overflow-hidden">
+                                        <PackHeatmap vehicle={activeVehicle} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Bottom Section: AI Triage and TreeSHAP Diagnostics */}
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 min-h-[280px]">
+                                <div className="md:col-span-5 neo-card bg-white overflow-hidden flex flex-col">
                                     <AITriageAdvisory vehicle={activeVehicle} />
                                 </div>
-                                <div className="flex-1 min-w-0 neo-card bg-white overflow-hidden">
+                                <div className="md:col-span-7 neo-card bg-white overflow-hidden flex flex-col">
                                     <AttributionTable shap={activeVehicle.shap} anomalyScore={activeVehicle.score} />
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        <div className="neo-card flex-1 flex flex-col items-center justify-center text-center space-y-4 bg-white">
-                            <div className="w-24 h-24 border-4 border-black bg-[var(--color-accent-amber)] flex items-center justify-center shadow-[4px_4px_0_0_#111]">
+                        <div className="neo-card min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-white space-y-4">
+                            <div className="w-24 h-24 border-4 border-black bg-[var(--color-accent-amber)] flex items-center justify-center shadow-[6px_6px_0_0_#111]">
                                 <Activity className="w-12 h-12 text-black" strokeWidth={3} />
                             </div>
-                            <span className="text-3xl font-heading tracking-widest text-black">NO ASSET</span>
-                            <span className="font-mono text-gray-500 font-bold border-2 border-dashed border-gray-300 p-2">AWAITING SELECTION</span>
+                            <span className="text-3xl font-heading tracking-widest text-black">NO ASSET SELECTED</span>
+                            <p className="font-mono text-gray-600 font-bold max-w-sm">
+                                Select an EV asset from the Asset Grid matrix on the left to initiate telemetry diagnostics.
+                            </p>
                         </div>
                     )}
                 </section>
