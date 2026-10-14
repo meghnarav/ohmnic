@@ -8,6 +8,7 @@ import AlertsPanel from '@/components/AlertsPanel';
 import TelemetryLog from '@/components/TelemetryLog';
 import PackHeatmap from '@/components/PackHeatmap';
 import AITriageAdvisory from '@/components/AITriageAdvisory';
+import EdgeGatewayCard from '@/components/EdgeGatewayCard';
 import { Activity, AlertTriangle, ShieldCheck, Grid, Zap, Layers } from 'lucide-react';
 
 function formatTimestamp(ts: string | number | undefined): string {
@@ -41,50 +42,80 @@ export default function SCADAConsole() {
     const [fleet, setFleet] = useState<VehicleRecord[]>([]);
     const [selectedVin, setSelectedVin] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
+    const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [telemetryLogs, setTelemetryLogs] = useState<VehicleRecord[]>([]);
     const [probeView, setProbeView] = useState<'gauges' | 'thermal' | 'split'>('gauges');
     const [filterStatus, setFilterStatus] = useState<'ALL' | 'CRITICAL' | 'NOMINAL'>('ALL');
 
-    useEffect(() => {
-        const fetchFleet = async () => {
-            try {
-                const res = await fetch('/api/fleet');
-                if (!res.ok) throw new Error('API Error');
-                const data = await res.json();
+    const fetchFleet = async () => {
+        try {
+            const res = await fetch('/api/fleet');
+            if (!res.ok) throw new Error('API Error');
+            const data = await res.json();
 
-                setLoading(false);
-                if (data.data && data.data.length > 0) {
-                    setFleet(data.data);
+            setLoading(false);
+            if (data.data && data.data.length > 0) {
+                setFleet(data.data);
 
-                    // Add to log firehose
-                    setTelemetryLogs(prev => {
-                        const newLogs = [...prev, ...data.data].slice(-100);
-                        return newLogs;
-                    });
+                // Add to log firehose
+                setTelemetryLogs(prev => {
+                    const newLogs = [...prev, ...data.data].slice(-120);
+                    return newLogs;
+                });
 
-                    // Auto-select first anomaly, or first vehicle if none selected
-                    setSelectedVin(current => {
-                        if (current) return current;
-                        const anomaly = data.data.find((v: VehicleRecord) => v.status === 'FAULT' || v.status === 'WARN');
-                        return anomaly ? anomaly.vin : data.data[0].vin;
-                    });
-                }
-            } catch (err: any) {
-                console.error('Fleet query failure:', err);
-                setError('Failed to poll DynamoDB telemetry stream.');
-                setLoading(false);
+                // Auto-select first anomaly, or first vehicle if none selected
+                setSelectedVin(current => {
+                    if (current) return current;
+                    const anomaly = data.data.find((v: VehicleRecord) => v.status === 'FAULT' || v.status === 'WARN');
+                    return anomaly ? anomaly.vin : data.data[0].vin;
+                });
             }
-        };
+        } catch (err: any) {
+            console.error('Fleet query failure:', err);
+            setError('Failed to poll DynamoDB telemetry stream.');
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchFleet();
         const pollTimer = setInterval(fetchFleet, 5000);
         return () => clearInterval(pollTimer);
     }, []);
 
+    const handleManualRefresh = async () => {
+        setIsRefreshing(true);
+        await fetchFleet();
+        setTimeout(() => setIsRefreshing(false), 500);
+    };
+
+    const handleSimulateBurst = () => {
+        if (fleet.length === 0) return;
+        const baseVehicle = activeVehicle || fleet[0];
+        const now = Date.now();
+        const burst: VehicleRecord[] = [];
+
+        for (let i = 0; i < 6; i++) {
+            const jitter = (Math.random() - 0.5) * 0.05;
+            burst.push({
+                ...baseVehicle,
+                timestamp: now - (5 - i) * 200,
+                packVoltage: +(baseVehicle.packVoltage + jitter).toFixed(3),
+                packCurrent: +(baseVehicle.packCurrent + (Math.random() - 0.5) * 4).toFixed(1),
+                deltaV: +(baseVehicle.deltaV + Math.random() * 0.004).toFixed(4),
+            });
+        }
+
+        setTelemetryLogs(prev => [...prev, ...burst].slice(-150));
+    };
+
     const activeVehicle = fleet.find((v) => v.vin === selectedVin) || null;
     const faultCount = fleet.filter(v => v.status === 'FAULT' || v.status === 'WARN').length;
     const systemHealth = fleet.length > 0 ? (100 - (faultCount / fleet.length) * 100).toFixed(1) : '100.0';
+
+    const avgTemp = fleet.length > 0 ? (fleet.reduce((acc, v) => acc + v.maxTemp, 0) / fleet.length).toFixed(1) : '0.0';
+    const avgDeltaV = fleet.length > 0 ? ((fleet.reduce((acc, v) => acc + v.deltaV, 0) / fleet.length) * 1000).toFixed(0) : '0';
 
     const filteredFleet = fleet.filter(v => {
         if (filterStatus === 'CRITICAL') return v.status === 'FAULT' || v.status === 'WARN';
@@ -150,18 +181,27 @@ export default function SCADAConsole() {
 
             {/* Scrollable Main Multi-Column Console */}
             <div className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
-                {/* Column 1: Live Tickets & Event Stream (lg:col-span-3) */}
+                {/* Column 1: Live Tickets, Event Stream & Edge Gateway (lg:col-span-3) */}
                 <section className="lg:col-span-3 flex flex-col gap-4">
-                    <div className="neo-card h-[340px] overflow-hidden flex flex-col">
+                    <div className="neo-card h-[250px] overflow-hidden flex flex-col">
                         <AlertsPanel fleet={fleet} />
                     </div>
-                    <div className="neo-card h-[290px] overflow-hidden bg-black text-white flex flex-col">
-                        <TelemetryLog fleet={telemetryLogs} />
+                    <div className="neo-card h-[270px] overflow-hidden bg-black text-white flex flex-col">
+                        <TelemetryLog fleet={telemetryLogs} selectedVin={selectedVin} />
+                    </div>
+                    <div className="neo-card h-[240px] overflow-hidden flex flex-col">
+                        <EdgeGatewayCard 
+                            fleetCount={fleet.length} 
+                            faultCount={faultCount} 
+                            onRefresh={handleManualRefresh}
+                            onSimulateBurst={handleSimulateBurst}
+                            isRefreshing={isRefreshing}
+                        />
                     </div>
                 </section>
 
                 {/* Column 2: Fleet Matrix Asset Grid (lg:col-span-3) */}
-                <section className="lg:col-span-3 neo-card bg-white p-4 flex flex-col h-[646px]">
+                <section className="lg:col-span-3 neo-card bg-white p-4 flex flex-col h-[792px]">
                     <div className="border-b-4 border-[var(--color-border-dark)] pb-2 mb-3">
                         <div className="flex justify-between items-center mb-2">
                             <h2 className="text-xl font-heading text-[var(--color-border-dark)]">ASSET GRID</h2>
@@ -194,6 +234,28 @@ export default function SCADAConsole() {
 
                     <div className="flex-1 overflow-y-auto pr-1">
                         <FleetMatrix vehicles={filteredFleet} selectedVin={selectedVin} onSelectVin={setSelectedVin} />
+                    </div>
+
+                    {/* Fleet Distribution Summary Footer */}
+                    <div className="border-t-2 border-black pt-2 mt-2 shrink-0">
+                        <div className="flex justify-between items-center text-[10px] font-mono font-bold mb-1">
+                            <span className="text-gray-500 uppercase">FLEET DISPERSION</span>
+                            <span>{fleet.length > 0 ? `${(((fleet.length - faultCount) / fleet.length) * 100).toFixed(0)}% HEALTHY` : '0%'}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 h-2 border border-black flex overflow-hidden">
+                            <div 
+                                style={{ width: `${fleet.length > 0 ? ((fleet.length - faultCount) / fleet.length) * 100 : 100}%` }} 
+                                className="bg-[var(--color-accent-emerald)] h-full" 
+                            />
+                            <div 
+                                style={{ width: `${fleet.length > 0 ? (faultCount / fleet.length) * 100 : 0}%` }} 
+                                className="bg-[var(--color-accent-pink)] h-full" 
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 text-[9px] font-mono text-gray-600 mt-1.5">
+                            <div>AVG TEMP: <strong className="text-black">{avgTemp}°C</strong></div>
+                            <div className="text-right">AVG ΔV: <strong className="text-black">{avgDeltaV} mV</strong></div>
+                        </div>
                     </div>
                 </section>
 
