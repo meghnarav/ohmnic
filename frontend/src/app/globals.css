@@ -1,28 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Work+Sans:wght@400;600;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-canvas: #f4f4f0;
-  --color-surface-card: #ffffff;
-  --color-surface-deep: #e5e5e5;
-  --color-border-dark: #111111;
-  --color-text-primary: #111111;
-  --color-text-secondary: #333333;
-  --color-text-muted: #555555;
-  --color-accent-pink: #ff3366;
-  --color-accent-amber: #ffcc00;
-  --color-accent-emerald: #00cc66;
-  --color-accent-cyan: #00e5ff;
-  --color-accent-blue: #3366ff;
+  --color-canvas: #0F1117;
+  --color-surface-card: #161922;
+  --color-surface-elevated: #1C202B;
+  --color-surface-deep: #12141A;
+  --color-surface-well: #0D0F14;
+  --color-border-dark: #2A2E3D;
+  --color-border-hard: #000000;
+  --color-text-primary: #F3F4F6;
+  --color-text-secondary: #9CA3AF;
+  --color-text-muted: #64748B;
+  --color-accent-amber: #F59E0B;
+  --color-accent-emerald: #10B981;
+  --color-accent-cyan: #06B6D4;
+  --color-accent-pink: #EF4444;
+  --color-accent-crimson: #DC2626;
 }
 
 html,
 body {
-  background-color: var(--color-canvas) !important;
-  background-image: radial-gradient(#111 1px, transparent 0);
-  background-size: 20px 20px;
-  color: var(--color-text-primary);
-  font-family: 'Work Sans', sans-serif;
+  background-color: #0F1117 !important;
+  background-image: radial-gradient(#2A2E3D 1px, transparent 1px);
+  background-size: 16px 16px;
+  color: #F3F4F6;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -30,51 +33,82 @@ body {
 }
 
 h1, h2, h3, h4, .font-heading {
-  font-family: 'Work Sans', sans-serif;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 code, pre, .font-mono {
-  font-family: 'Space Mono', monospace;
-  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
 }
 
-/* Neobrutalist Utilities */
+/* Cyber-Industrial Bento Utilities */
 .neo-card {
-  background-color: var(--color-surface-card);
-  border: 4px solid var(--color-border-dark);
-  box-shadow: 6px 6px 0px 0px var(--color-border-dark);
+  background-color: #161922;
+  border: 1.5px solid #2A2E3D;
+  box-shadow: 3px 3px 0px 0px #000000;
+  border-radius: 0px;
+}
+
+.neo-card-heavy {
+  background-color: #161922;
+  border: 2px solid #2A2E3D;
+  box-shadow: 4px 4px 0px 0px #000000;
   border-radius: 0px;
 }
 
 .neo-btn {
-  background-color: var(--color-surface-card);
-  border: 3px solid var(--color-border-dark);
-  box-shadow: 4px 4px 0px 0px var(--color-border-dark);
+  background-color: #1C202B;
+  border: 1.5px solid #2A2E3D;
+  box-shadow: 2px 2px 0px 0px #000000;
+  color: #F3F4F6;
   transition: all 0.1s ease-in-out;
   border-radius: 0px;
 }
 
+.neo-btn:hover {
+  background-color: #242938;
+  border-color: #06B6D4;
+}
+
 .neo-btn:active, .neo-card.clickable:active {
-  transform: translate(4px, 4px);
-  box-shadow: 0px 0px 0px 0px var(--color-border-dark);
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px 0px #000000;
 }
 
 .neo-card.clickable:hover {
-  background-color: #f0f0f0;
+  background-color: #1C202B;
+  border-color: #3B4254;
+}
+
+/* Industrial Corner Notch / Tech Brackets */
+.tech-bracket {
+  position: relative;
+}
+.tech-bracket::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-top: 2px solid #06B6D4;
+  border-left: 2px solid #06B6D4;
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-canvas);
-  border-left: 3px solid var(--color-border-dark);
+  background: #0F1117;
+  border-left: 1px solid #2A2E3D;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border-dark); 
+  background: #2A2E3D; 
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3E455B; 
 }

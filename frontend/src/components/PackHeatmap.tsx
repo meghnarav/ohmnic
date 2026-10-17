@@ -14,47 +14,58 @@ export default function PackHeatmap({ vehicle, onSwitchToGauges }: PackHeatmapPr
     const [selectedCell, setSelectedCell] = useState<number | null>(null);
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
-    // Calculate simulated cell temp variance based on vehicle maxTemp and status
+    // Simulated cell temp variance based on vehicle maxTemp and status
     const hotCellIndex = vehicle.status !== 'NOMINAL' ? 14 : -1;
 
     const getCellData = (idx: number) => {
         const isHot = idx === hotCellIndex;
         const isWarm = !isHot && vehicle.status !== 'NOMINAL' && Math.abs(idx - hotCellIndex) <= 2;
         
-        let temp = vehicle.maxTemp - 1.5 + (Math.sin(idx) * 0.8);
+        let temp = vehicle.maxTemp - 1.2 + (Math.sin(idx * 1.5) * 0.7);
         if (isHot) temp = vehicle.maxTemp;
-        else if (isWarm) temp = vehicle.maxTemp - 0.7;
+        else if (isWarm) temp = vehicle.maxTemp - 0.5;
 
         let statusText = 'NOMINAL';
-        let bgColor = 'bg-[var(--color-accent-emerald)]';
+        let cellColor = '#10B981'; // Emerald
+        let isPulsing = false;
         
         if (isHot && vehicle.status === 'FAULT') {
             statusText = 'CRITICAL HOTSPOT';
-            bgColor = 'bg-[var(--color-accent-pink)] animate-pulse';
+            cellColor = '#EF4444'; // Crimson
+            isPulsing = true;
         } else if (isHot && vehicle.status === 'WARN') {
             statusText = 'ELEVATED TEMP';
-            bgColor = 'bg-[var(--color-accent-amber)]';
+            cellColor = '#F59E0B'; // Amber
         } else if (isWarm && vehicle.status === 'FAULT') {
             statusText = 'THERMAL GRADIENT';
-            bgColor = 'bg-[var(--color-accent-pink)]/70';
+            cellColor = '#F43F5E';
         } else if (isWarm && vehicle.status === 'WARN') {
             statusText = 'THERMAL GRADIENT';
-            bgColor = 'bg-[var(--color-accent-amber)]/70';
+            cellColor = '#F59E0B';
         }
 
-        return { temp: temp.toFixed(1), statusText, bgColor, cellId: `C-${(idx + 1).toString().padStart(2, '0')}` };
+        return { 
+            temp: temp.toFixed(1), 
+            statusText, 
+            cellColor, 
+            isPulsing,
+            cellId: `C-${(idx + 1).toString().padStart(2, '0')}` 
+        };
     };
 
     const activeCellInfo = selectedCell !== null ? getCellData(selectedCell) : null;
 
     return (
-        <div className="h-full flex flex-col bg-[var(--color-accent-amber)] p-4">
-            <div className="flex justify-between items-center mb-3 border-b-4 border-black pb-2">
-                <div className="flex items-center space-x-2">
-                    <Grid className="w-5 h-5 text-black" strokeWidth={3} />
-                    <span className="text-xl font-heading text-black">THERMAL MAP</span>
-                    <span className="text-[10px] font-mono bg-black text-white px-2 py-0.5 font-bold">
-                        32 CELLS
+        <div className="h-full flex flex-col bg-[#161922] p-4 text-[#F3F4F6]">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-3 border-b border-[#2A2E3D] pb-3">
+                <div className="flex items-center space-x-2.5">
+                    <Grid className="w-4 h-4 text-[#06B6D4]" />
+                    <span className="text-sm font-heading tracking-wider uppercase text-[#F3F4F6]">
+                        32-CELL THERMAL MATRIX
+                    </span>
+                    <span className="text-[9px] font-mono bg-[#0D0F14] text-[#10B981] border border-[#2A2E3D] px-2 py-0.5 font-bold">
+                        4S8P_TOPOLOGY
                     </span>
                 </div>
                 
@@ -62,34 +73,42 @@ export default function PackHeatmap({ vehicle, onSwitchToGauges }: PackHeatmapPr
                     {onSwitchToGauges && (
                         <button
                             onClick={onSwitchToGauges}
-                            className="neo-btn text-[10px] font-heading px-2 py-1 bg-white hover:bg-gray-100 text-black flex items-center uppercase"
+                            className="neo-btn text-[10px] font-mono px-2.5 py-1 text-[#F3F4F6] hover:text-[#06B6D4] flex items-center uppercase tracking-wider"
                             title="Switch to Gauges View"
                         >
-                            <Zap className="w-3 h-3 mr-1" /> Gauges
+                            <Zap className="w-3 h-3 mr-1 text-[#06B6D4]" /> Gauges
                         </button>
                     )}
                     <button
                         onClick={() => setIsExpanded(true)}
-                        className="neo-btn text-[10px] font-heading p-1.5 bg-white hover:bg-gray-100 text-black flex items-center"
-                        title="Expand Fullscreen"
+                        className="neo-btn text-[10px] p-1.5 text-[#F3F4F6] hover:text-[#06B6D4] flex items-center"
+                        title="Expand Fullscreen Matrix"
                     >
                         <Maximize2 className="w-3.5 h-3.5" />
                     </button>
                 </div>
             </div>
             
-            <div className="flex-1 flex flex-col items-center justify-center p-3 border-4 border-black bg-white shadow-[6px_6px_0_0_#111]">
-                <div className="grid grid-cols-8 gap-1.5 w-full max-w-[280px]">
+            {/* Dark Well: Matrix Canvas */}
+            <div className="flex-1 flex flex-col items-center justify-center p-4 border border-[#2A2E3D] bg-[#0D0F14] shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
+                <div className="grid grid-cols-8 gap-2 w-full max-w-[340px]">
                     {Array.from({ length: totalCells }).map((_, idx) => {
-                        const { bgColor, cellId } = getCellData(idx);
+                        const { cellColor, isPulsing, cellId } = getCellData(idx);
                         const isSelected = selectedCell === idx;
 
                         return (
                             <button 
                                 key={idx} 
                                 onClick={() => setSelectedCell(selectedCell === idx ? null : idx)}
-                                title={`${cellId}: click to inspect`}
-                                className={`w-full pt-[100%] border-2 border-black relative transition-transform cursor-pointer ${bgColor} ${isSelected ? 'scale-110 ring-4 ring-black z-10 shadow-[2px_2px_0_0_#000]' : 'hover:scale-105'}`}
+                                title={`${cellId}: click to probe`}
+                                style={{ backgroundColor: cellColor }}
+                                className={`w-full pt-[100%] relative transition-all cursor-pointer border border-[#000000]/60 ${
+                                    isPulsing ? 'animate-pulse' : ''
+                                } ${
+                                    isSelected 
+                                        ? 'scale-110 ring-2 ring-[#06B6D4] z-10 shadow-[0_0_12px_rgba(6,182,212,0.8)]' 
+                                        : 'hover:scale-105 hover:brightness-125'
+                                }`}
                             />
                         );
                     })}
@@ -97,66 +116,86 @@ export default function PackHeatmap({ vehicle, onSwitchToGauges }: PackHeatmapPr
 
                 {/* Selected Cell Floating Quick Inspector */}
                 {activeCellInfo && (
-                    <div className="mt-3 w-full bg-[var(--color-canvas)] border-2 border-black p-2 flex justify-between items-center text-[10px] font-mono font-bold text-black">
-                        <span className="bg-black text-white px-1.5 py-0.5">{activeCellInfo.cellId}</span>
-                        <span>{activeCellInfo.temp}°C</span>
-                        <span className="uppercase text-[9px] px-1 bg-white border border-black">{activeCellInfo.statusText}</span>
-                        <button onClick={() => setSelectedCell(null)} className="text-gray-500 hover:text-black font-black">✕</button>
+                    <div className="mt-3.5 w-full bg-[#161922] border border-[#2A2E3D] px-3 py-1.5 flex justify-between items-center text-[10px] font-mono shadow-[2px_2px_0px_#000]">
+                        <span className="bg-[#0D0F14] text-[#06B6D4] border border-[#2A2E3D] px-2 py-0.5 font-bold">
+                            {activeCellInfo.cellId}
+                        </span>
+                        <span className="font-bold text-[#F3F4F6]">{activeCellInfo.temp}°C</span>
+                        <span 
+                            style={{ color: activeCellInfo.cellColor }}
+                            className="uppercase text-[9px] font-bold px-1.5 py-0.5 bg-[#0D0F14] border border-[#2A2E3D]"
+                        >
+                            {activeCellInfo.statusText}
+                        </span>
+                        <button 
+                            onClick={() => setSelectedCell(null)} 
+                            className="text-[#9CA3AF] hover:text-[#F3F4F6] font-mono text-xs ml-1"
+                        >
+                            ✕
+                        </button>
                     </div>
                 )}
             </div>
             
-            <div className="mt-3 flex justify-between items-center text-[10px] font-mono font-bold text-black uppercase">
-                <span className="bg-white border-2 border-black px-1.5 py-0.5 shadow-[2px_2px_0_0_#111]">▲ FRONT</span>
-                <span className="text-[9px] text-black/70 font-mono">CLICK CELL TO PROBE</span>
-                <span className="bg-white border-2 border-black px-1.5 py-0.5 shadow-[2px_2px_0_0_#111]">▼ REAR</span>
+            {/* Orientations & Legend */}
+            <div className="mt-3 flex justify-between items-center text-[10px] font-mono text-[#9CA3AF] uppercase">
+                <span className="bg-[#0D0F14] border border-[#2A2E3D] px-2 py-0.5 text-[#64748B]">▲ FRONT_BUS</span>
+                <div className="flex items-center space-x-3 text-[9px]">
+                    <span className="flex items-center"><div className="w-2 h-2 bg-[#10B981] mr-1"></div> Nominal</span>
+                    <span className="flex items-center"><div className="w-2 h-2 bg-[#F59E0B] mr-1"></div> Elevated</span>
+                    <span className="flex items-center"><div className="w-2 h-2 bg-[#EF4444] mr-1"></div> Hotspot</span>
+                </div>
+                <span className="bg-[#0D0F14] border border-[#2A2E3D] px-2 py-0.5 text-[#64748B]">▼ REAR_BUS</span>
             </div>
 
             {/* Modal Dialog for Expanded Thermal Matrix */}
             {isExpanded && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-                    <div className="neo-card bg-[var(--color-canvas)] p-6 max-w-xl w-full border-4 border-black shadow-[8px_8px_0_0_#000]">
-                        <div className="flex justify-between items-center border-b-4 border-black pb-3 mb-4">
-                            <div className="flex items-center space-x-3">
-                                <Grid className="w-6 h-6 text-black" strokeWidth={3} />
-                                <h3 className="text-2xl font-heading text-black">EXPANDED PACK MATRIX</h3>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="neo-card-heavy bg-[#161922] p-6 max-w-xl w-full border border-[#2A2E3D] shadow-[6px_6px_0_0_#000]">
+                        <div className="flex justify-between items-center border-b border-[#2A2E3D] pb-3 mb-4">
+                            <div className="flex items-center space-x-2.5">
+                                <Grid className="w-5 h-5 text-[#06B6D4]" />
+                                <h3 className="text-xl font-heading text-[#F3F4F6] uppercase tracking-wider">
+                                    HIGH-RESOLUTION PACK THERMAL MATRIX
+                                </h3>
                             </div>
                             <button 
                                 onClick={() => setIsExpanded(false)}
-                                className="neo-btn p-2 bg-[var(--color-accent-pink)] text-white font-black"
+                                className="neo-btn p-1.5 text-[#F3F4F6] hover:text-[#EF4444]"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="p-4 border-4 border-black bg-white shadow-[4px_4px_0_0_#111] mb-4">
+                        <div className="p-4 border border-[#2A2E3D] bg-[#0D0F14] shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] mb-4">
                             <div className="grid grid-cols-8 gap-2">
                                 {Array.from({ length: totalCells }).map((_, idx) => {
-                                    const { bgColor, temp, cellId } = getCellData(idx);
+                                    const { cellColor, temp, cellId } = getCellData(idx);
                                     return (
                                         <div 
                                             key={idx}
-                                            className={`border-2 border-black p-2 flex flex-col items-center justify-center ${bgColor}`}
+                                            style={{ backgroundColor: `${cellColor}22`, borderColor: cellColor }}
+                                            className="border p-2 flex flex-col items-center justify-center transition-all hover:scale-105"
                                         >
-                                            <span className="text-[9px] font-mono font-black text-black">{cellId}</span>
-                                            <span className="text-[10px] font-heading text-black">{temp}°C</span>
+                                            <span className="text-[9px] font-mono text-[#9CA3AF]">{cellId}</span>
+                                            <span className="text-[11px] font-mono font-bold text-[#F3F4F6]">{temp}°C</span>
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
 
-                        <div className="flex justify-between items-center text-xs font-mono font-bold">
-                            <div className="flex items-center space-x-3">
-                                <span className="flex items-center"><div className="w-3 h-3 bg-[var(--color-accent-emerald)] border border-black mr-1"></div> Nominal</span>
-                                <span className="flex items-center"><div className="w-3 h-3 bg-[var(--color-accent-amber)] border border-black mr-1"></div> Elevated</span>
-                                <span className="flex items-center"><div className="w-3 h-3 bg-[var(--color-accent-pink)] border border-black mr-1"></div> Hotspot</span>
+                        <div className="flex justify-between items-center text-xs font-mono">
+                            <div className="flex items-center space-x-4 text-[10px] text-[#9CA3AF]">
+                                <span className="flex items-center"><div className="w-2.5 h-2.5 bg-[#10B981] mr-1.5"></div> &lt; 35°C (Nominal)</span>
+                                <span className="flex items-center"><div className="w-2.5 h-2.5 bg-[#F59E0B] mr-1.5"></div> 35-50°C (Warning)</span>
+                                <span className="flex items-center"><div className="w-2.5 h-2.5 bg-[#EF4444] mr-1.5"></div> &gt; 50°C (Hotspot)</span>
                             </div>
                             <button 
                                 onClick={() => setIsExpanded(false)}
-                                className="neo-btn px-4 py-2 bg-black text-white font-heading uppercase text-xs"
+                                className="neo-btn px-4 py-1.5 bg-[#1C202B] text-[#F3F4F6] hover:border-[#06B6D4] font-mono uppercase text-xs"
                             >
-                                Close Inspector
+                                Close Matrix
                             </button>
                         </div>
                     </div>

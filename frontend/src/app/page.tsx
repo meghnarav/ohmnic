@@ -9,7 +9,7 @@ import TelemetryLog from '@/components/TelemetryLog';
 import PackHeatmap from '@/components/PackHeatmap';
 import AITriageAdvisory from '@/components/AITriageAdvisory';
 import EdgeGatewayCard from '@/components/EdgeGatewayCard';
-import { Activity, AlertTriangle, ShieldCheck, Grid, Zap, Layers } from 'lucide-react';
+import { Activity, AlertTriangle, ShieldCheck, Grid, Zap, Layers, Car, Bell } from 'lucide-react';
 
 function formatTimestamp(ts: string | number | undefined): string {
     if (!ts) return new Date().toISOString();
@@ -47,6 +47,7 @@ export default function SCADAConsole() {
     const [telemetryLogs, setTelemetryLogs] = useState<VehicleRecord[]>([]);
     const [probeView, setProbeView] = useState<'gauges' | 'thermal' | 'split'>('gauges');
     const [filterStatus, setFilterStatus] = useState<'ALL' | 'CRITICAL' | 'NOMINAL'>('ALL');
+    const [sidebarTab, setSidebarTab] = useState<'FLEET' | 'ALERTS'>('FLEET');
 
     const fetchFleet = async () => {
         try {
@@ -58,9 +59,9 @@ export default function SCADAConsole() {
             if (data.data && data.data.length > 0) {
                 setFleet(data.data);
 
-                // Add to log firehose
+                // Add to log stream
                 setTelemetryLogs(prev => {
-                    const newLogs = [...prev, ...data.data].slice(-120);
+                    const newLogs = [...prev, ...data.data].slice(-150);
                     return newLogs;
                 });
 
@@ -107,7 +108,7 @@ export default function SCADAConsole() {
             });
         }
 
-        setTelemetryLogs(prev => [...prev, ...burst].slice(-150));
+        setTelemetryLogs(prev => [...prev, ...burst].slice(-180));
     };
 
     const activeVehicle = fleet.find((v) => v.vin === selectedVin) || null;
@@ -125,71 +126,206 @@ export default function SCADAConsole() {
 
     if (loading && fleet.length === 0) {
         return (
-            <div className="flex min-h-screen w-full items-center justify-center bg-[var(--color-canvas)] font-heading text-4xl text-[var(--color-border-dark)] font-black">
-                <div className="neo-card p-8 bg-[var(--color-accent-amber)] animate-pulse">
-                    BOOTING UP ΩHMNIC_
+            <div className="flex min-h-screen w-full items-center justify-center bg-[#0F1117] font-mono text-xl text-[#F3F4F6]">
+                <div className="neo-card p-6 bg-[#161922] border border-[#2A2E3D] shadow-[4px_4px_0_0_#000] flex items-center space-x-3">
+                    <span className="w-3 h-3 bg-[#10B981] animate-ping" />
+                    <span>INITIALIZING_OHMNIC_SCADA_DECK...</span>
                 </div>
             </div>
         );
     }
 
     return (
-        <main className="min-h-screen w-full flex flex-col bg-[var(--color-canvas)] text-[var(--color-text-primary)]">
-            {/* Top Ribbon KPIs */}
-            <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center justify-between border-b-4 border-[var(--color-border-dark)] px-6 py-2 bg-[var(--color-accent-amber)] shadow-[0_4px_0_0_#111]">
-                <div className="flex flex-wrap items-center gap-4 sm:gap-8">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 border-2 border-[var(--color-border-dark)] bg-white flex items-center justify-center shadow-[2px_2px_0_0_#111]">
-                            <Activity className="w-6 h-6 text-[var(--color-border-dark)]" strokeWidth={3} />
-                        </div>
-                        <div>
-                            <div className="text-[10px] text-[var(--color-border-dark)] font-bold uppercase tracking-widest">Active Fleet</div>
-                            <div className="text-xl font-heading text-[var(--color-border-dark)]">{fleet.length} UNITS</div>
-                        </div>
+        <main className="min-h-screen w-full flex flex-col bg-[#0F1117] text-[#F3F4F6]">
+            {/* Top Compact Carbon Bar with Live Heartbeat Pill */}
+            <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between border-b border-[#2A2E3D] px-5 py-2 bg-[#12141A] shadow-[0_2px_0_0_#000000]">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-6">
+                    {/* Brand / Heartbeat Pill */}
+                    <div className="flex items-center space-x-2 bg-[#0D0F14] border border-[#2A2E3D] px-3 py-1 shadow-[2px_2px_0_0_#000]">
+                        <div className="w-2.5 h-2.5 bg-[#10B981] animate-pulse rounded-full" />
+                        <span className="font-mono text-xs font-black tracking-wider text-[#F3F4F6]">
+                            OHMNIC SCADA <span className="text-[#64748B] font-normal">// v1.2-LIVE</span>
+                        </span>
                     </div>
 
-                    <div className="hidden sm:block w-1 h-8 bg-[var(--color-border-dark)]" />
+                    <div className="hidden sm:block w-px h-6 bg-[#2A2E3D]" />
 
-                    <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 border-2 border-[var(--color-border-dark)] flex items-center justify-center shadow-[2px_2px_0_0_#111] ${faultCount > 0 ? 'bg-[var(--color-accent-pink)]' : 'bg-white'}`}>
-                            <AlertTriangle className="w-6 h-6 text-[var(--color-border-dark)]" strokeWidth={3} />
-                        </div>
-                        <div>
-                            <div className="text-[10px] text-[var(--color-border-dark)] font-bold uppercase tracking-widest">Critical Tickets</div>
-                            <div className="text-xl font-heading text-[var(--color-border-dark)]">{faultCount} ALERTS</div>
-                        </div>
+                    {/* Aggregate Counter: Active Fleet */}
+                    <div className="flex items-center space-x-2">
+                        <Activity className="w-3.5 h-3.5 text-[#06B6D4]" />
+                        <span className="text-[10px] font-mono text-[#9CA3AF] uppercase">FLEET:</span>
+                        <span className="text-xs font-mono font-bold text-[#06B6D4] bg-[#0D0F14] px-1.5 py-0.5 border border-[#2A2E3D]">
+                            {fleet.length} UNITS
+                        </span>
                     </div>
 
-                    <div className="hidden sm:block w-1 h-8 bg-[var(--color-border-dark)]" />
+                    <div className="hidden sm:block w-px h-6 bg-[#2A2E3D]" />
 
-                    <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 border-2 border-[var(--color-border-dark)] bg-[var(--color-accent-emerald)] flex items-center justify-center shadow-[2px_2px_0_0_#111]">
-                            <ShieldCheck className="w-6 h-6 text-[var(--color-border-dark)]" strokeWidth={3} />
-                        </div>
-                        <div>
-                            <div className="text-[10px] text-[var(--color-border-dark)] font-bold uppercase tracking-widest">System Health</div>
-                            <div className="text-xl font-heading text-[var(--color-border-dark)]">{systemHealth}%</div>
-                        </div>
+                    {/* Aggregate Counter: Critical Tickets */}
+                    <div className="flex items-center space-x-2">
+                        <AlertTriangle className={`w-3.5 h-3.5 ${faultCount > 0 ? 'text-[#EF4444]' : 'text-[#64748B]'}`} />
+                        <span className="text-[10px] font-mono text-[#9CA3AF] uppercase">TICKETS:</span>
+                        <span className={`text-xs font-mono font-bold px-1.5 py-0.5 border ${
+                            faultCount > 0 
+                                ? 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/40 animate-pulse' 
+                                : 'bg-[#0D0F14] text-[#64748B] border-[#2A2E3D]'
+                        }`}>
+                            {faultCount} ALERTS
+                        </span>
+                    </div>
+
+                    <div className="hidden sm:block w-px h-6 bg-[#2A2E3D]" />
+
+                    {/* Aggregate Counter: Health Index */}
+                    <div className="flex items-center space-x-2">
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
+                        <span className="text-[10px] font-mono text-[#9CA3AF] uppercase">HEALTH:</span>
+                        <span className="text-xs font-mono font-bold text-[#10B981] bg-[#0D0F14] px-1.5 py-0.5 border border-[#2A2E3D]">
+                            {systemHealth}%
+                        </span>
                     </div>
                 </div>
 
-                <div className="flex items-center space-x-3 border-4 border-[var(--color-border-dark)] bg-white px-4 py-1.5 shadow-[2px_2px_0_0_#111] mt-2 sm:mt-0">
-                    <span className="text-sm font-heading tracking-wider text-[var(--color-border-dark)]">ΩHMNIC SCADA</span>
-                    <div className="h-3 w-3 border-2 border-black bg-[var(--color-accent-emerald)] animate-pulse" />
+                {/* Right Status Pill */}
+                <div className="flex items-center space-x-2.5 mt-2 sm:mt-0">
+                    <span className="text-[9px] font-mono bg-[#0D0F14] text-[#9CA3AF] px-2.5 py-1 border border-[#2A2E3D] shadow-[2px_2px_0_0_#000]">
+                        QUEUE: <strong className="text-[#06B6D4]">AWS SQS / LAMBDA</strong>
+                    </span>
+                    <span className="text-[9px] font-mono bg-[#0D0F14] text-[#10B981] px-2 py-1 border border-[#10B981]/40 flex items-center">
+                        <span className="w-1.5 h-1.5 bg-[#10B981] mr-1.5 rounded-full" /> 200_OK
+                    </span>
                 </div>
             </header>
 
-            {/* Scrollable Main Multi-Column Console */}
+            {/* Main Cyber-Industrial Bento Grid */}
             <div className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
-                {/* Column 1: Live Tickets, Event Stream & Edge Gateway (lg:col-span-3) */}
-                <section className="lg:col-span-3 flex flex-col gap-4">
-                    <div className="neo-card h-[250px] overflow-hidden flex flex-col">
-                        <AlertsPanel fleet={fleet} />
+                
+                {/* Column 1: Fleet Assets & Anomaly Queue (lg:col-span-4) */}
+                <section className="lg:col-span-4 flex flex-col gap-4">
+                    
+                    {/* Fleet Assets Master Panel */}
+                    <div className="neo-card h-[490px] flex flex-col p-3.5 bg-[#161922]">
+                        {/* Section Header with Tabs */}
+                        <div className="border-b border-[#2A2E3D] pb-2.5 mb-2.5">
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="flex space-x-1">
+                                    <button
+                                        onClick={() => setSidebarTab('FLEET')}
+                                        className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase transition-all border ${
+                                            sidebarTab === 'FLEET'
+                                                ? 'bg-[#1C202B] text-[#06B6D4] border-[#06B6D4]'
+                                                : 'bg-[#0D0F14] text-[#9CA3AF] border-[#2A2E3D] hover:text-[#F3F4F6]'
+                                        }`}
+                                    >
+                                        <Car className="w-3 h-3 inline mr-1" />
+                                        FLEET MATRIX ({fleet.length})
+                                    </button>
+                                    <button
+                                        onClick={() => setSidebarTab('ALERTS')}
+                                        className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase transition-all border ${
+                                            sidebarTab === 'ALERTS'
+                                                ? 'bg-[#1C202B] text-[#EF4444] border-[#EF4444]'
+                                                : 'bg-[#0D0F14] text-[#9CA3AF] border-[#2A2E3D] hover:text-[#F3F4F6]'
+                                        }`}
+                                    >
+                                        <Bell className="w-3 h-3 inline mr-1" />
+                                        TICKETS ({faultCount})
+                                    </button>
+                                </div>
+                                <span className="text-[9px] font-mono bg-[#0D0F14] text-[#10B981] px-1.5 py-0.5 border border-[#10B981]/40">
+                                    LIVE_STREAM
+                                </span>
+                            </div>
+
+                            {/* Status Filters */}
+                            {sidebarTab === 'FLEET' && (
+                                <div className="flex gap-1.5 pt-1">
+                                    <button 
+                                        onClick={() => setFilterStatus('ALL')}
+                                        className={`text-[9px] font-mono font-bold px-2 py-0.5 border transition-all ${
+                                            filterStatus === 'ALL' 
+                                                ? 'bg-[#06B6D4]/10 text-[#06B6D4] border-[#06B6D4]' 
+                                                : 'bg-[#0D0F14] text-[#64748B] border-[#2A2E3D] hover:text-[#F3F4F6]'
+                                        }`}
+                                    >
+                                        ALL ({fleet.length})
+                                    </button>
+                                    <button 
+                                        onClick={() => setFilterStatus('CRITICAL')}
+                                        className={`text-[9px] font-mono font-bold px-2 py-0.5 border transition-all ${
+                                            filterStatus === 'CRITICAL' 
+                                                ? 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]' 
+                                                : 'bg-[#0D0F14] text-[#64748B] border-[#2A2E3D] hover:text-[#F3F4F6]'
+                                        }`}
+                                    >
+                                        ALERTS ({faultCount})
+                                    </button>
+                                    <button 
+                                        onClick={() => setFilterStatus('NOMINAL')}
+                                        className={`text-[9px] font-mono font-bold px-2 py-0.5 border transition-all ${
+                                            filterStatus === 'NOMINAL' 
+                                                ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]' 
+                                                : 'bg-[#0D0F14] text-[#64748B] border-[#2A2E3D] hover:text-[#F3F4F6]'
+                                        }`}
+                                    >
+                                        NOMINAL ({fleet.length - faultCount})
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {error && (
+                            <div className="text-[10px] font-mono border border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444] p-2 mb-2">
+                                {error}
+                            </div>
+                        )}
+
+                        {/* List Content */}
+                        <div className="flex-1 overflow-y-auto pr-1">
+                            {sidebarTab === 'FLEET' ? (
+                                <FleetMatrix 
+                                    vehicles={filteredFleet} 
+                                    selectedVin={selectedVin} 
+                                    onSelectVin={setSelectedVin} 
+                                />
+                            ) : (
+                                <AlertsPanel 
+                                    fleet={fleet} 
+                                    onSelectVin={(vin) => {
+                                        setSelectedVin(vin);
+                                        setSidebarTab('FLEET');
+                                    }} 
+                                />
+                            )}
+                        </div>
+
+                        {/* Fleet Dispersion Summary Footer */}
+                        <div className="border-t border-[#2A2E3D] pt-2 mt-2 shrink-0 bg-[#0D0F14] p-2">
+                            <div className="flex justify-between items-center text-[9px] font-mono mb-1">
+                                <span className="text-[#64748B] uppercase">FLEET HEALTH DISPERSION</span>
+                                <span className="text-[#10B981] font-bold">
+                                    {fleet.length > 0 ? `${(((fleet.length - faultCount) / fleet.length) * 100).toFixed(0)}% HEALTHY` : '0%'}
+                                </span>
+                            </div>
+                            <div className="w-full bg-[#161922] h-1.5 border border-[#2A2E3D] flex overflow-hidden">
+                                <div 
+                                    style={{ width: `${fleet.length > 0 ? ((fleet.length - faultCount) / fleet.length) * 100 : 100}%` }} 
+                                    className="bg-[#10B981] h-full" 
+                                />
+                                <div 
+                                    style={{ width: `${fleet.length > 0 ? (faultCount / fleet.length) * 100 : 0}%` }} 
+                                    className="bg-[#EF4444] h-full" 
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-1 text-[8px] font-mono text-[#9CA3AF] mt-1.5">
+                                <div>AVG TEMP: <strong className="text-[#F3F4F6]">{avgTemp}°C</strong></div>
+                                <div className="text-right">AVG ΔV: <strong className="text-[#F3F4F6]">{avgDeltaV} mV</strong></div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="neo-card h-[270px] overflow-hidden bg-black text-white flex flex-col">
-                        <TelemetryLog fleet={telemetryLogs} selectedVin={selectedVin} />
-                    </div>
-                    <div className="neo-card h-[240px] overflow-hidden flex flex-col">
+
+                    {/* Edge Ingestion Gateway Card */}
+                    <div className="neo-card h-[290px] overflow-hidden flex flex-col">
                         <EdgeGatewayCard 
                             fleetCount={fleet.length} 
                             faultCount={faultCount} 
@@ -200,112 +336,83 @@ export default function SCADAConsole() {
                     </div>
                 </section>
 
-                {/* Column 2: Fleet Matrix Asset Grid (lg:col-span-3) */}
-                <section className="lg:col-span-3 neo-card bg-white p-4 flex flex-col h-[792px]">
-                    <div className="border-b-4 border-[var(--color-border-dark)] pb-2 mb-3">
-                        <div className="flex justify-between items-center mb-2">
-                            <h2 className="text-xl font-heading text-[var(--color-border-dark)]">ASSET GRID</h2>
-                            <span className="text-xs font-mono bg-black text-white px-2 py-0.5 font-bold">LIVE</span>
-                        </div>
-                        {/* Status Filter Badges */}
-                        <div className="flex gap-1">
-                            <button 
-                                onClick={() => setFilterStatus('ALL')}
-                                className={`text-[9px] font-mono font-bold px-2 py-0.5 border-2 border-black transition-all ${filterStatus === 'ALL' ? 'bg-black text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
-                            >
-                                ALL ({fleet.length})
-                            </button>
-                            <button 
-                                onClick={() => setFilterStatus('CRITICAL')}
-                                className={`text-[9px] font-mono font-bold px-2 py-0.5 border-2 border-black transition-all ${filterStatus === 'CRITICAL' ? 'bg-[var(--color-accent-pink)] text-black' : 'bg-gray-100 hover:bg-gray-200'}`}
-                            >
-                                ALERTS ({faultCount})
-                            </button>
-                            <button 
-                                onClick={() => setFilterStatus('NOMINAL')}
-                                className={`text-[9px] font-mono font-bold px-2 py-0.5 border-2 border-black transition-all ${filterStatus === 'NOMINAL' ? 'bg-[var(--color-accent-emerald)] text-black' : 'bg-gray-100 hover:bg-gray-200'}`}
-                            >
-                                NOMINAL ({fleet.length - faultCount})
-                            </button>
-                        </div>
-                    </div>
-
-                    {error && <div className="text-xs font-bold border-2 border-black bg-[var(--color-accent-pink)] text-black p-2 mb-3">{error}</div>}
-
-                    <div className="flex-1 overflow-y-auto pr-1">
-                        <FleetMatrix vehicles={filteredFleet} selectedVin={selectedVin} onSelectVin={setSelectedVin} />
-                    </div>
-
-                    {/* Fleet Distribution Summary Footer */}
-                    <div className="border-t-2 border-black pt-2 mt-2 shrink-0">
-                        <div className="flex justify-between items-center text-[10px] font-mono font-bold mb-1">
-                            <span className="text-gray-500 uppercase">FLEET DISPERSION</span>
-                            <span>{fleet.length > 0 ? `${(((fleet.length - faultCount) / fleet.length) * 100).toFixed(0)}% HEALTHY` : '0%'}</span>
-                        </div>
-                        <div className="w-full bg-gray-200 h-2 border border-black flex overflow-hidden">
-                            <div 
-                                style={{ width: `${fleet.length > 0 ? ((fleet.length - faultCount) / fleet.length) * 100 : 100}%` }} 
-                                className="bg-[var(--color-accent-emerald)] h-full" 
-                            />
-                            <div 
-                                style={{ width: `${fleet.length > 0 ? (faultCount / fleet.length) * 100 : 0}%` }} 
-                                className="bg-[var(--color-accent-pink)] h-full" 
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-1 text-[9px] font-mono text-gray-600 mt-1.5">
-                            <div>AVG TEMP: <strong className="text-black">{avgTemp}°C</strong></div>
-                            <div className="text-right">AVG ΔV: <strong className="text-black">{avgDeltaV} mV</strong></div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Column 3: Active Vehicle Probe Deep Dive (lg:col-span-6) */}
-                <section className="lg:col-span-6 flex flex-col gap-4 min-w-0">
+                {/* Column 2: Vehicle Operations & Telemetry Bench (lg:col-span-8) */}
+                <section className="lg:col-span-8 flex flex-col gap-4 min-w-0">
                     {activeVehicle ? (
                         <div className="flex flex-col gap-4">
+                            
                             {/* Probe Banner with View Mode Selector */}
-                            <div className="neo-card bg-white p-4 flex flex-wrap justify-between items-center gap-3">
+                            <div className="neo-card p-3.5 bg-[#161922] flex flex-wrap justify-between items-center gap-3">
                                 <div>
-                                    <h3 className="text-2xl font-heading text-black flex items-center uppercase tracking-tight font-black">
-                                        <div className={`w-4 h-4 border-2 border-black mr-3 ${activeVehicle.status === 'FAULT' ? 'bg-[var(--color-accent-pink)] animate-ping' : activeVehicle.status === 'WARN' ? 'bg-[var(--color-accent-amber)]' : 'bg-[var(--color-accent-emerald)]'}`} />
-                                        PROBE: {activeVehicle.vin}
-                                    </h3>
-                                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                                        <span className="text-[10px] font-mono text-black uppercase font-bold bg-gray-100 inline-block px-2 py-0.5 border-2 border-black shadow-[2px_2px_0_0_#111]">
-                                            LAST_TX: {formatTimestamp(activeVehicle.timestamp)}
+                                    <div className="flex items-center space-x-2.5">
+                                        <div className={`w-2.5 h-2.5 rounded-full ${
+                                            activeVehicle.status === 'FAULT' 
+                                                ? 'bg-[#EF4444] animate-ping' 
+                                                : activeVehicle.status === 'WARN' 
+                                                ? 'bg-[#F59E0B]' 
+                                                : 'bg-[#10B981]'
+                                        }`} />
+                                        <h3 className="text-lg font-heading text-[#F3F4F6] tracking-wider uppercase font-bold">
+                                            PROBE // <span className="text-[#06B6D4] font-mono">{activeVehicle.vin}</span>
+                                        </h3>
+                                        <span className={`text-[9px] font-mono font-bold px-2 py-0.5 border ${
+                                            activeVehicle.status === 'FAULT'
+                                                ? 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/40'
+                                                : activeVehicle.status === 'WARN'
+                                                ? 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/40'
+                                                : 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/40'
+                                        }`}>
+                                            {activeVehicle.status}
                                         </span>
-                                        <span className="text-[10px] font-mono text-black uppercase font-bold bg-gray-100 inline-block px-2 py-0.5 border-2 border-black shadow-[2px_2px_0_0_#111]">
-                                            HEALTH: {(100 - (activeVehicle.score * 100)).toFixed(1)}%
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                        <span className="text-[9px] font-mono text-[#9CA3AF] bg-[#0D0F14] px-2 py-0.5 border border-[#2A2E3D]">
+                                            LAST_TX: <span className="text-[#F3F4F6]">{formatTimestamp(activeVehicle.timestamp)}</span>
+                                        </span>
+                                        <span className="text-[9px] font-mono text-[#9CA3AF] bg-[#0D0F14] px-2 py-0.5 border border-[#2A2E3D]">
+                                            HEALTH: <span className="text-[#10B981] font-bold">{(100 - (activeVehicle.score * 100)).toFixed(1)}%</span>
                                         </span>
                                     </div>
                                 </div>
 
                                 {/* View Switcher Buttons */}
-                                <div className="flex items-center border-4 border-black bg-white p-1 shadow-[3px_3px_0_0_#111] space-x-1">
+                                <div className="flex items-center bg-[#0D0F14] p-1 border border-[#2A2E3D] space-x-1 shadow-[2px_2px_0_0_#000]">
                                     <button 
                                         onClick={() => setProbeView('gauges')}
-                                        className={`px-3 py-1 text-xs font-heading tracking-wider uppercase transition-all flex items-center ${probeView === 'gauges' ? 'bg-[var(--color-accent-amber)] text-black border-2 border-black font-black shadow-[2px_2px_0_0_#111]' : 'text-gray-700 hover:text-black font-bold'}`}
+                                        className={`px-3 py-1 text-[10px] font-mono tracking-wider uppercase transition-all flex items-center ${
+                                            probeView === 'gauges' 
+                                                ? 'bg-[#1C202B] text-[#06B6D4] border border-[#06B6D4] font-bold' 
+                                                : 'text-[#9CA3AF] hover:text-[#F3F4F6]'
+                                        }`}
                                     >
-                                        <Zap className="w-3.5 h-3.5 mr-1" /> Gauges
+                                        <Zap className="w-3 h-3 mr-1 text-[#06B6D4]" /> Gauges
                                     </button>
                                     <button 
                                         onClick={() => setProbeView('thermal')}
-                                        className={`px-3 py-1 text-xs font-heading tracking-wider uppercase transition-all flex items-center ${probeView === 'thermal' ? 'bg-[var(--color-accent-pink)] text-black border-2 border-black font-black shadow-[2px_2px_0_0_#111]' : 'text-gray-700 hover:text-black font-bold'}`}
+                                        className={`px-3 py-1 text-[10px] font-mono tracking-wider uppercase transition-all flex items-center ${
+                                            probeView === 'thermal' 
+                                                ? 'bg-[#1C202B] text-[#F59E0B] border border-[#F59E0B] font-bold' 
+                                                : 'text-[#9CA3AF] hover:text-[#F3F4F6]'
+                                        }`}
                                     >
-                                        <Grid className="w-3.5 h-3.5 mr-1" /> Thermal Map
+                                        <Grid className="w-3 h-3 mr-1 text-[#F59E0B]" /> Thermal Matrix
                                     </button>
                                     <button 
                                         onClick={() => setProbeView('split')}
-                                        className={`px-3 py-1 text-xs font-heading tracking-wider uppercase transition-all flex items-center ${probeView === 'split' ? 'bg-[var(--color-accent-emerald)] text-black border-2 border-black font-black shadow-[2px_2px_0_0_#111]' : 'text-gray-700 hover:text-black font-bold'}`}
+                                        className={`px-3 py-1 text-[10px] font-mono tracking-wider uppercase transition-all flex items-center ${
+                                            probeView === 'split' 
+                                                ? 'bg-[#1C202B] text-[#10B981] border border-[#10B981] font-bold' 
+                                                : 'text-[#9CA3AF] hover:text-[#F3F4F6]'
+                                        }`}
                                     >
-                                        <Layers className="w-3.5 h-3.5 mr-1" /> Dual View
+                                        <Layers className="w-3 h-3 mr-1 text-[#10B981]" /> Dual View
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Top Section: Gauges / Thermal Matrix (Spacious & Clean) */}
+                            {/* Top Hero Section: Telemetry Gauges / Thermal Matrix */}
                             {probeView === 'gauges' && (
-                                <div className="neo-card bg-white min-h-[260px] overflow-hidden">
+                                <div className="neo-card bg-[#161922] min-h-[270px] overflow-hidden">
                                     <DiagnosticsPanel 
                                         vehicle={activeVehicle} 
                                         onSwitchToThermal={() => setProbeView('thermal')} 
@@ -314,7 +421,7 @@ export default function SCADAConsole() {
                             )}
 
                             {probeView === 'thermal' && (
-                                <div className="neo-card bg-white min-h-[260px] overflow-hidden">
+                                <div className="neo-card bg-[#161922] min-h-[270px] overflow-hidden">
                                     <PackHeatmap 
                                         vehicle={activeVehicle} 
                                         onSwitchToGauges={() => setProbeView('gauges')} 
@@ -324,33 +431,39 @@ export default function SCADAConsole() {
 
                             {probeView === 'split' && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="neo-card bg-white min-h-[260px] overflow-hidden">
+                                    <div className="neo-card bg-[#161922] min-h-[270px] overflow-hidden">
                                         <DiagnosticsPanel vehicle={activeVehicle} />
                                     </div>
-                                    <div className="neo-card bg-white min-h-[260px] overflow-hidden">
+                                    <div className="neo-card bg-[#161922] min-h-[270px] overflow-hidden">
                                         <PackHeatmap vehicle={activeVehicle} />
                                     </div>
                                 </div>
                             )}
 
-                            {/* Bottom Section: AI Triage and TreeSHAP Diagnostics */}
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 min-h-[280px]">
-                                <div className="md:col-span-5 neo-card bg-white overflow-hidden flex flex-col">
+                            {/* Middle Section: AI Triage and TreeSHAP Diagnostics */}
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 min-h-[260px]">
+                                <div className="md:col-span-5 neo-card overflow-hidden flex flex-col">
                                     <AITriageAdvisory vehicle={activeVehicle} />
                                 </div>
-                                <div className="md:col-span-7 neo-card bg-white overflow-hidden flex flex-col">
+                                <div className="md:col-span-7 neo-card overflow-hidden flex flex-col">
                                     <AttributionTable shap={activeVehicle.shap} anomalyScore={activeVehicle.score} />
                                 </div>
                             </div>
+
+                            {/* Bottom Hero Section: Docked Raw CAN Telemetry Stream */}
+                            <div className="neo-card h-[210px] overflow-hidden flex flex-col">
+                                <TelemetryLog fleet={telemetryLogs} selectedVin={selectedVin} />
+                            </div>
+
                         </div>
                     ) : (
-                        <div className="neo-card min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-white space-y-4">
-                            <div className="w-24 h-24 border-4 border-black bg-[var(--color-accent-amber)] flex items-center justify-center shadow-[6px_6px_0_0_#111]">
-                                <Activity className="w-12 h-12 text-black" strokeWidth={3} />
+                        <div className="neo-card min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-[#161922] space-y-4">
+                            <div className="w-16 h-16 border border-[#2A2E3D] bg-[#0D0F14] flex items-center justify-center shadow-[4px_4px_0_0_#000]">
+                                <Activity className="w-8 h-8 text-[#06B6D4]" />
                             </div>
-                            <span className="text-3xl font-heading tracking-widest text-black">NO ASSET SELECTED</span>
-                            <p className="font-mono text-gray-600 font-bold max-w-sm">
-                                Select an EV asset from the Asset Grid matrix on the left to initiate telemetry diagnostics.
+                            <span className="text-xl font-heading tracking-widest text-[#F3F4F6]">NO ASSET SELECTED</span>
+                            <p className="font-mono text-xs text-[#9CA3AF] max-w-sm">
+                                Select an EV asset from the Fleet Matrix on the left to initiate telemetry diagnostics.
                             </p>
                         </div>
                     )}
