@@ -264,17 +264,17 @@ export default function SCADAConsole() {
                     {activeVehicle ? (
                         <div className="flex flex-col gap-4">
                             {/* Probe Banner with View Mode Selector */}
-                            <div className="neo-card bg-[var(--color-accent-blue)] p-4 flex flex-wrap justify-between items-center gap-3">
+                            <div className="neo-card bg-white p-4 flex flex-wrap justify-between items-center gap-3">
                                 <div>
-                                    <h3 className="text-2xl font-heading text-white flex items-center uppercase tracking-tight">
-                                        <div className={`w-4 h-4 border-2 border-white mr-3 ${activeVehicle.status === 'FAULT' ? 'bg-[var(--color-accent-pink)] animate-ping' : activeVehicle.status === 'WARN' ? 'bg-[var(--color-accent-amber)]' : 'bg-[var(--color-accent-emerald)]'}`} />
+                                    <h3 className="text-2xl font-heading text-black flex items-center uppercase tracking-tight font-black">
+                                        <div className={`w-4 h-4 border-2 border-black mr-3 ${activeVehicle.status === 'FAULT' ? 'bg-[var(--color-accent-pink)] animate-ping' : activeVehicle.status === 'WARN' ? 'bg-[var(--color-accent-amber)]' : 'bg-[var(--color-accent-emerald)]'}`} />
                                         PROBE: {activeVehicle.vin}
                                     </h3>
                                     <div className="flex flex-wrap items-center gap-2 mt-1">
-                                        <span className="text-[10px] font-mono text-white/90 uppercase font-bold bg-black/40 inline-block px-2 py-0.5 border border-white/20">
+                                        <span className="text-[10px] font-mono text-black uppercase font-bold bg-gray-100 inline-block px-2 py-0.5 border-2 border-black shadow-[2px_2px_0_0_#111]">
                                             LAST_TX: {formatTimestamp(activeVehicle.timestamp)}
                                         </span>
-                                        <span className="text-[10px] font-mono text-white/90 uppercase font-bold bg-black/40 inline-block px-2 py-0.5 border border-white/20">
+                                        <span className="text-[10px] font-mono text-black uppercase font-bold bg-gray-100 inline-block px-2 py-0.5 border-2 border-black shadow-[2px_2px_0_0_#111]">
                                             HEALTH: {(100 - (activeVehicle.score * 100)).toFixed(1)}%
                                         </span>
                                     </div>
@@ -290,7 +290,7 @@ export default function SCADAConsole() {
                                     </button>
                                     <button 
                                         onClick={() => setProbeView('thermal')}
-                                        className={`px-3 py-1 text-xs font-heading tracking-wider uppercase transition-all flex items-center ${probeView === 'thermal' ? 'bg-[var(--color-accent-pink)] text-white border-2 border-black font-black shadow-[2px_2px_0_0_#111]' : 'text-gray-700 hover:text-black font-bold'}`}
+                                        className={`px-3 py-1 text-xs font-heading tracking-wider uppercase transition-all flex items-center ${probeView === 'thermal' ? 'bg-[var(--color-accent-pink)] text-black border-2 border-black font-black shadow-[2px_2px_0_0_#111]' : 'text-gray-700 hover:text-black font-bold'}`}
                                     >
                                         <Grid className="w-3.5 h-3.5 mr-1" /> Thermal Map
                                     </button>
