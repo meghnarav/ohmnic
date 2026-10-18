@@ -1,36 +1,35 @@
-import React from 'react';
-import { VehicleRecord } from '@/app/page';
-import { Battery, Zap, Thermometer, Activity, Grid } from 'lucide-react';
+import React from "react";
+import { VehicleRecord } from "@/app/page";
+import { Battery, Zap, Thermometer, Activity, Grid } from "lucide-react";
 
 const BlockyProgress = ({ value, max, label, color, unit, icon: Icon, tag }: any) => {
-    const progress = Math.min((value / max) * 100, 100);
+    const progress = Math.min((parseFloat(value) / max) * 100, 100);
 
     return (
-        <div className="flex flex-col border-2 border-[#242938] p-3 bg-[#0A0C10] shadow-[3px_3px_0px_#000000]">
-            <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-[#242938]/60">
-                <div className="flex items-center space-x-2">
+        <div className="flex flex-col border-2 border-[#1E2229] p-3 bg-[#FFFFFF] shadow-[3px_3px_0px_#1E2229]">
+            <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-[#1E2229]/20">
+                <div className="flex items-center space-x-1.5">
                     <Icon className="w-3.5 h-3.5" style={{ color }} strokeWidth={2.5} />
-                    <span className="text-[10px] font-mono uppercase text-[#94A3B8] font-bold tracking-wider">{label}</span>
+                    <span className="text-[#4B5565] font-mono font-bold text-xs uppercase tracking-wider">{label}</span>
                 </div>
-                <span className="text-[9px] font-mono text-[#64748B] font-bold">[{tag}]</span>
+                <span className="text-[9px] font-mono font-bold text-[#4B5565]">[{tag}]</span>
             </div>
             
             <div className="flex items-baseline justify-between mb-2">
-                <div className="flex items-baseline space-x-1">
-                    <span className="font-mono font-black text-3xl tracking-tight text-white leading-none">{value}</span>
-                    <span className="font-mono text-xs font-bold text-[#64748B]">{unit}</span>
+                <div className="flex items-baseline space-x-1.5">
+                    <span className="text-[#0F131A] font-mono font-black tracking-tighter text-3xl leading-none">{value}</span>
+                    <span className="text-[#1E2229] font-mono font-bold text-[10px] bg-[#ECEEEA] px-1 border border-[#1E2229]">{unit}</span>
                 </div>
-                <span className="text-[9px] font-mono font-bold text-[#64748B]">MAX {max}{unit}</span>
+                <span className="text-[9px] font-mono font-bold text-[#4B5565]">MAX {max}{unit}</span>
             </div>
 
-            {/* High-contrast dark inset track */}
-            <div className="w-full h-3.5 border border-[#242938] bg-[#0A0C10] relative overflow-hidden">
+            {/* Recessed Mechanical Track */}
+            <div className="bg-[#ECEEEA] border-2 border-[#1E2229] h-4 w-full p-[2px] flex items-center overflow-hidden">
                 <div 
-                    className="absolute top-0 bottom-0 left-0 transition-all duration-300" 
+                    className="h-full transition-all duration-200" 
                     style={{ 
-                        width: `${progress}%`, 
-                        backgroundColor: color,
-                        boxShadow: `0 0 10px ${color}88`
+                        width: `${Math.max(2, progress)}%`, 
+                        backgroundColor: color
                     }}
                 />
             </div>
@@ -54,29 +53,29 @@ export default function DiagnosticsPanel({ vehicle, onSwitchToThermal }: Diagnos
     const isCurrentHigh = isSingleCell ? absCurrent > 3.0 : absCurrent > 150;
 
     return (
-        <div className="h-full flex flex-col bg-[#12151D]">
-            {/* Two-tone Mechanical Header Bar */}
-            <div className="bg-[#181C26] px-3 py-1.5 border-b-2 border-[#242938] flex items-center justify-between shrink-0">
+        <div className="h-full flex flex-col bg-[#FFFFFF] text-[#0F131A]">
+            {/* Module Rack Strip Header */}
+            <div className="bg-[#DFE3DC] px-3 py-1.5 border-b-2 border-[#1E2229] flex items-center justify-between shrink-0">
                 <div className="flex items-center space-x-2">
-                    <span className="text-[10px] font-mono font-black px-1.5 py-0.5 bg-[#0A0C10] border border-[#242938] text-[#00F0FF]">
-                        [MOD-01 // TELEMETRY]
+                    <span className="text-[10px] font-mono font-bold text-[#1E2229] bg-white px-1.5 py-0.5 border border-[#1E2229]">
+                        [MOD-01]
                     </span>
-                    <span className="text-xs font-heading font-black tracking-wider uppercase text-white">
-                        TELEMETRY INSTRUMENTATION
-                    </span>
+                    <h2 className="text-xs font-mono font-black tracking-widest text-[#1E2229] uppercase">
+                        BATTERY CELL TELEMETRY
+                    </h2>
                 </div>
 
                 <div className="flex items-center space-x-2">
-                    <span className="text-[9px] font-mono bg-[#0A0C10] text-[#10B981] border border-[#242938] px-2 py-0.5 font-bold">
-                        {isSingleCell ? 'BENCH_CELL_4S' : 'PACK_BUS_HV'}
+                    <span className="text-[10px] font-mono font-bold text-[#1E2229] bg-[#ECEEEA] px-1.5 py-0.5 border border-[#1E2229]">
+                        {isSingleCell ? "BENCH_CELL_4S" : "PACK_BUS_HV"}
                     </span>
                     {onSwitchToThermal && (
                         <button
                             onClick={onSwitchToThermal}
-                            className="neo-btn text-[9px] font-mono font-bold px-2 py-0.5 text-white hover:text-[#00F0FF] flex items-center uppercase tracking-wider"
+                            className="neo-btn text-[9px] font-mono font-bold px-2 py-0.5 text-[#1E2229] hover:bg-[#DFE3DC] flex items-center uppercase tracking-wider"
                             title="Switch to Thermal Matrix"
                         >
-                            <Grid className="w-3 h-3 mr-1 text-[#FFD000]" />
+                            <Grid className="w-3 h-3 mr-1 text-[#D97706]" />
                             Thermal Map →
                         </button>
                     )}
@@ -84,14 +83,14 @@ export default function DiagnosticsPanel({ vehicle, onSwitchToThermal }: Diagnos
             </div>
             
             {/* 4 Instrumentation Wells */}
-            <div className="p-3.5 flex-1 grid grid-cols-2 gap-3 bg-[#12151D]">
+            <div className="p-3.5 flex-1 grid grid-cols-2 gap-3 bg-[#FFFFFF]">
                 <BlockyProgress 
                     value={vehicle.packVoltage.toFixed(2)} 
                     max={maxVoltage} 
                     label={isSingleCell ? "Cell Potential" : "Pack Potential"} 
                     unit="V"
                     tag="VOLT_DC"
-                    color="#10B981" 
+                    color="#059669" 
                     icon={Zap}
                 />
                 
@@ -101,7 +100,7 @@ export default function DiagnosticsPanel({ vehicle, onSwitchToThermal }: Diagnos
                     label="Bus Current Draw" 
                     unit="A"
                     tag="CURR_RMS"
-                    color={isCurrentHigh ? '#FFD000' : '#00F0FF'} 
+                    color={isCurrentHigh ? "#D97706" : "#2563EB"} 
                     icon={Activity}
                 />
                 
@@ -111,7 +110,7 @@ export default function DiagnosticsPanel({ vehicle, onSwitchToThermal }: Diagnos
                     label="Core Thermal Peak" 
                     unit="°C"
                     tag="TEMP_JUNCT"
-                    color={vehicle.maxTemp > 50 ? '#EF4444' : vehicle.maxTemp > 35 ? '#FFD000' : '#10B981'} 
+                    color={vehicle.maxTemp > 50 ? "#DC2626" : vehicle.maxTemp > 35 ? "#D97706" : "#059669"} 
                     icon={Thermometer}
                 />
 
@@ -121,7 +120,7 @@ export default function DiagnosticsPanel({ vehicle, onSwitchToThermal }: Diagnos
                     label="Cell Imbalance" 
                     unit={isSingleCell ? "V" : "mV"}
                     tag="DELTA_VAR"
-                    color={vehicle.deltaV > (isSingleCell ? 0.03 : 0.08) ? '#EF4444' : '#10B981'} 
+                    color={vehicle.deltaV > (isSingleCell ? 0.03 : 0.08) ? "#DC2626" : "#059669"} 
                     icon={Battery}
                 />
             </div>

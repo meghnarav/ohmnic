@@ -2,28 +2,26 @@
 @import "tailwindcss";
 
 @theme {
-  --color-canvas: #0A0C10;
-  --color-surface-card: #12151D;
-  --color-surface-header: #181C26;
-  --color-surface-elevated: #1B202D;
-  --color-surface-well: #0A0C10;
-  --color-border-dark: #242938;
-  --color-border-hard: #000000;
-  --color-text-primary: #FFFFFF;
-  --color-text-secondary: #94A3B8;
-  --color-text-muted: #64748B;
-  --color-accent-amber: #FFD000;
-  --color-accent-emerald: #10B981;
-  --color-accent-cyan: #00F0FF;
-  --color-accent-crimson: #EF4444;
+  --color-canvas: #ECEEEA;
+  --color-surface-card: #FFFFFF;
+  --color-surface-header: #DFE3DC;
+  --color-surface-well: #ECEEEA;
+  --color-border-hard: #1E2229;
+  --color-text-primary: #0F131A;
+  --color-text-secondary: #4B5565;
+  --color-text-muted: #6B7280;
+  --color-signal-green: #059669;
+  --color-signal-blue: #2563EB;
+  --color-signal-amber: #D97706;
+  --color-signal-red: #DC2626;
 }
 
 html,
 body {
-  background-color: #0A0C10 !important;
-  background-image: radial-gradient(#242938 1px, transparent 1px);
+  background-color: #ECEEEA !important;
+  background-image: radial-gradient(#D2D7CD 1.5px, transparent 1.5px);
   background-size: 16px 16px;
-  color: #FFFFFF;
+  color: #0F131A;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   margin: 0;
   padding: 0;
@@ -42,24 +40,24 @@ code, pre, .font-mono {
   font-weight: 700;
 }
 
-/* Tactile Cyber-Industrial Hardware Bento Utilities */
+/* Teenage Engineering / Dieter Rams Physical Chassis Utilities */
 .neo-card {
-  background-color: #12151D;
-  border: 2px solid #242938;
-  box-shadow: 4px 4px 0px 0px #000000;
+  background-color: #FFFFFF;
+  border: 2px solid #1E2229;
+  box-shadow: 4px 4px 0px 0px #1E2229;
   border-radius: 0px !important;
 }
 
 .neo-card-heavy {
-  background-color: #12151D;
-  border: 2px solid #242938;
-  box-shadow: 6px 6px 0px 0px #000000;
+  background-color: #FFFFFF;
+  border: 2px solid #1E2229;
+  box-shadow: 6px 6px 0px 0px #1E2229;
   border-radius: 0px !important;
 }
 
 .neo-titlebar {
-  background-color: #181C26;
-  border-bottom: 2px solid #242938;
+  background-color: #DFE3DC;
+  border-bottom: 2px solid #1E2229;
   padding: 0.375rem 0.75rem;
   display: flex;
   align-items: center;
@@ -67,27 +65,27 @@ code, pre, .font-mono {
 }
 
 .neo-btn {
-  background-color: #181C26;
-  border: 2px solid #242938;
-  box-shadow: 3px 3px 0px 0px #000000;
-  color: #FFFFFF;
+  background-color: #FFFFFF;
+  border: 2px solid #1E2229;
+  box-shadow: 2px 2px 0px 0px #1E2229;
+  color: #1E2229;
   transition: all 0.08s ease-in-out;
   border-radius: 0px !important;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
 }
 
 .neo-btn:hover {
-  background-color: #222736;
-  border-color: #00F0FF;
+  background-color: #DFE3DC;
 }
 
 .neo-btn:active, .neo-card.clickable:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0px 0px #000000;
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px 0px #1E2229;
 }
 
 .neo-card.clickable:hover {
-  background-color: #161A24;
-  border-color: #384158;
+  background-color: #F8FAF7;
 }
 
 /* Force strict rectangular hardware aesthetics */
@@ -95,18 +93,19 @@ code, pre, .font-mono {
   border-radius: 0px !important;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Light Industrial Putty */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0A0C10;
-  border-left: 1px solid #242938;
+  background: #ECEEEA;
+  border-left: 1px solid #1E2229;
 }
 ::-webkit-scrollbar-thumb {
-  background: #242938; 
+  background: #CBD1C8;
+  border: 1px solid #1E2229;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #384158; 
+  background: #A6AFA3; 
 }
