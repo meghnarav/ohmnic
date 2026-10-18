@@ -126,73 +126,73 @@ export default function SCADAConsole() {
 
     if (loading && fleet.length === 0) {
         return (
-            <div className="flex min-h-screen w-full items-center justify-center bg-[#0F1117] font-mono text-xl text-[#F3F4F6]">
-                <div className="neo-card p-6 bg-[#161922] border border-[#2A2E3D] shadow-[4px_4px_0_0_#000] flex items-center space-x-3">
-                    <span className="w-3 h-3 bg-[#10B981] animate-ping" />
-                    <span>INITIALIZING_OHMNIC_SCADA_DECK...</span>
+            <div className="flex min-h-screen w-full items-center justify-center bg-[#0A0C10] font-mono text-sm text-white">
+                <div className="neo-card p-6 bg-[#12151D] border-2 border-[#242938] shadow-[4px_4px_0_0_#000000] flex items-center space-x-3">
+                    <span className="w-2.5 h-2.5 bg-[#10B981] animate-ping" />
+                    <span className="font-mono font-black tracking-wider">INITIALIZING_OHMNIC_SCADA_DECK...</span>
                 </div>
             </div>
         );
     }
 
     return (
-        <main className="min-h-screen w-full flex flex-col bg-[#0F1117] text-[#F3F4F6]">
+        <main className="min-h-screen w-full flex flex-col bg-[#0A0C10] text-white">
             {/* Top Compact Carbon Bar with Live Heartbeat Pill */}
-            <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between border-b border-[#2A2E3D] px-5 py-2 bg-[#12141A] shadow-[0_2px_0_0_#000000]">
+            <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center justify-between border-b-2 border-[#242938] px-5 py-2 bg-[#12151D] shadow-[0_4px_0_0_#000000]">
                 <div className="flex flex-wrap items-center gap-3 sm:gap-6">
                     {/* Brand / Heartbeat Pill */}
-                    <div className="flex items-center space-x-2 bg-[#0D0F14] border border-[#2A2E3D] px-3 py-1 shadow-[2px_2px_0_0_#000]">
-                        <div className="w-2.5 h-2.5 bg-[#10B981] animate-pulse rounded-full" />
-                        <span className="font-mono text-xs font-black tracking-wider text-[#F3F4F6]">
+                    <div className="flex items-center space-x-2 bg-[#0A0C10] border-2 border-[#242938] px-3 py-1 shadow-[2px_2px_0_0_#000]">
+                        <div className="w-2 h-2 bg-[#10B981] animate-pulse" />
+                        <span className="font-mono text-xs font-black tracking-wider text-white">
                             OHMNIC SCADA <span className="text-[#64748B] font-normal">// v1.2-LIVE</span>
                         </span>
                     </div>
 
-                    <div className="hidden sm:block w-px h-6 bg-[#2A2E3D]" />
+                    <div className="hidden sm:block w-px h-6 bg-[#242938]" />
 
                     {/* Aggregate Counter: Active Fleet */}
                     <div className="flex items-center space-x-2">
-                        <Activity className="w-3.5 h-3.5 text-[#06B6D4]" />
-                        <span className="text-[10px] font-mono text-[#9CA3AF] uppercase">FLEET:</span>
-                        <span className="text-xs font-mono font-bold text-[#06B6D4] bg-[#0D0F14] px-1.5 py-0.5 border border-[#2A2E3D]">
+                        <Activity className="w-3.5 h-3.5 text-[#00F0FF]" />
+                        <span className="text-[10px] font-mono text-[#94A3B8] uppercase font-bold">FLEET:</span>
+                        <span className="font-mono font-black text-xs text-[#00F0FF] bg-[#0A0C10] px-2 py-0.5 border border-[#242938]">
                             {fleet.length} UNITS
                         </span>
                     </div>
 
-                    <div className="hidden sm:block w-px h-6 bg-[#2A2E3D]" />
+                    <div className="hidden sm:block w-px h-6 bg-[#242938]" />
 
                     {/* Aggregate Counter: Critical Tickets */}
                     <div className="flex items-center space-x-2">
-                        <AlertTriangle className={`w-3.5 h-3.5 ${faultCount > 0 ? 'text-[#EF4444]' : 'text-[#64748B]'}`} />
-                        <span className="text-[10px] font-mono text-[#9CA3AF] uppercase">TICKETS:</span>
-                        <span className={`text-xs font-mono font-bold px-1.5 py-0.5 border ${
+                        <AlertTriangle className={`w-3.5 h-3.5 ${faultCount > 0 ? 'text-[#FFD000]' : 'text-[#64748B]'}`} />
+                        <span className="text-[10px] font-mono text-[#94A3B8] uppercase font-bold">TICKETS:</span>
+                        <span className={`font-mono font-black text-xs px-2 py-0.5 border ${
                             faultCount > 0 
-                                ? 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/40 animate-pulse' 
-                                : 'bg-[#0D0F14] text-[#64748B] border-[#2A2E3D]'
+                                ? 'bg-[#FFD000]/20 text-[#FFD000] border-[#FFD000] animate-pulse' 
+                                : 'bg-[#0A0C10] text-[#64748B] border-[#242938]'
                         }`}>
                             {faultCount} ALERTS
                         </span>
                     </div>
 
-                    <div className="hidden sm:block w-px h-6 bg-[#2A2E3D]" />
+                    <div className="hidden sm:block w-px h-6 bg-[#242938]" />
 
                     {/* Aggregate Counter: Health Index */}
                     <div className="flex items-center space-x-2">
                         <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
-                        <span className="text-[10px] font-mono text-[#9CA3AF] uppercase">HEALTH:</span>
-                        <span className="text-xs font-mono font-bold text-[#10B981] bg-[#0D0F14] px-1.5 py-0.5 border border-[#2A2E3D]">
+                        <span className="text-[10px] font-mono text-[#94A3B8] uppercase font-bold">HEALTH:</span>
+                        <span className="font-mono font-black text-xs text-[#10B981] bg-[#0A0C10] px-2 py-0.5 border border-[#242938]">
                             {systemHealth}%
                         </span>
                     </div>
                 </div>
 
                 {/* Right Status Pill */}
-                <div className="flex items-center space-x-2.5 mt-2 sm:mt-0">
-                    <span className="text-[9px] font-mono bg-[#0D0F14] text-[#9CA3AF] px-2.5 py-1 border border-[#2A2E3D] shadow-[2px_2px_0_0_#000]">
-                        QUEUE: <strong className="text-[#06B6D4]">AWS SQS / LAMBDA</strong>
+                <div className="flex items-center space-x-2 mt-2 sm:mt-0">
+                    <span className="text-[9px] font-mono bg-[#0A0C10] text-[#94A3B8] px-2.5 py-1 border border-[#242938] shadow-[2px_2px_0_0_#000]">
+                        INGESTION: <strong className="text-[#00F0FF]">AWS SQS / LAMBDA</strong>
                     </span>
-                    <span className="text-[9px] font-mono bg-[#0D0F14] text-[#10B981] px-2 py-1 border border-[#10B981]/40 flex items-center">
-                        <span className="w-1.5 h-1.5 bg-[#10B981] mr-1.5 rounded-full" /> 200_OK
+                    <span className="text-[9px] font-mono bg-[#0A0C10] text-[#10B981] px-2 py-1 border border-[#10B981]/50 font-bold flex items-center">
+                        <span className="w-1.5 h-1.5 bg-[#10B981] mr-1.5" /> 200_OK
                     </span>
                 </div>
             </header>
@@ -204,84 +204,82 @@ export default function SCADAConsole() {
                 <section className="lg:col-span-4 flex flex-col gap-4">
                     
                     {/* Fleet Assets Master Panel */}
-                    <div className="neo-card h-[490px] flex flex-col p-3.5 bg-[#161922]">
+                    <div className="neo-card h-[490px] flex flex-col bg-[#12151D]">
                         {/* Section Header with Tabs */}
-                        <div className="border-b border-[#2A2E3D] pb-2.5 mb-2.5">
-                            <div className="flex justify-between items-center mb-2">
-                                <div className="flex space-x-1">
-                                    <button
-                                        onClick={() => setSidebarTab('FLEET')}
-                                        className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase transition-all border ${
-                                            sidebarTab === 'FLEET'
-                                                ? 'bg-[#1C202B] text-[#06B6D4] border-[#06B6D4]'
-                                                : 'bg-[#0D0F14] text-[#9CA3AF] border-[#2A2E3D] hover:text-[#F3F4F6]'
-                                        }`}
-                                    >
-                                        <Car className="w-3 h-3 inline mr-1" />
-                                        FLEET MATRIX ({fleet.length})
-                                    </button>
-                                    <button
-                                        onClick={() => setSidebarTab('ALERTS')}
-                                        className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase transition-all border ${
-                                            sidebarTab === 'ALERTS'
-                                                ? 'bg-[#1C202B] text-[#EF4444] border-[#EF4444]'
-                                                : 'bg-[#0D0F14] text-[#9CA3AF] border-[#2A2E3D] hover:text-[#F3F4F6]'
-                                        }`}
-                                    >
-                                        <Bell className="w-3 h-3 inline mr-1" />
-                                        TICKETS ({faultCount})
-                                    </button>
-                                </div>
-                                <span className="text-[9px] font-mono bg-[#0D0F14] text-[#10B981] px-1.5 py-0.5 border border-[#10B981]/40">
-                                    LIVE_STREAM
-                                </span>
+                        <div className="bg-[#181C26] px-3 py-1.5 border-b-2 border-[#242938] flex justify-between items-center shrink-0">
+                            <div className="flex space-x-1.5">
+                                <button
+                                    onClick={() => setSidebarTab('FLEET')}
+                                    className={`px-2 py-0.5 text-[9px] font-mono font-black uppercase transition-all border ${
+                                        sidebarTab === 'FLEET'
+                                            ? 'bg-[#12151D] text-[#00F0FF] border-[#00F0FF]'
+                                            : 'bg-[#0A0C10] text-[#94A3B8] border-[#242938] hover:text-white'
+                                    }`}
+                                >
+                                    <Car className="w-2.5 h-2.5 inline mr-1" />
+                                    ASSETS ({fleet.length})
+                                </button>
+                                <button
+                                    onClick={() => setSidebarTab('ALERTS')}
+                                    className={`px-2 py-0.5 text-[9px] font-mono font-black uppercase transition-all border ${
+                                        sidebarTab === 'ALERTS'
+                                            ? 'bg-[#12151D] text-[#FFD000] border-[#FFD000]'
+                                            : 'bg-[#0A0C10] text-[#94A3B8] border-[#242938] hover:text-white'
+                                    }`}
+                                >
+                                    <Bell className="w-2.5 h-2.5 inline mr-1" />
+                                    TICKETS ({faultCount})
+                                </button>
                             </div>
-
-                            {/* Status Filters */}
-                            {sidebarTab === 'FLEET' && (
-                                <div className="flex gap-1.5 pt-1">
-                                    <button 
-                                        onClick={() => setFilterStatus('ALL')}
-                                        className={`text-[9px] font-mono font-bold px-2 py-0.5 border transition-all ${
-                                            filterStatus === 'ALL' 
-                                                ? 'bg-[#06B6D4]/10 text-[#06B6D4] border-[#06B6D4]' 
-                                                : 'bg-[#0D0F14] text-[#64748B] border-[#2A2E3D] hover:text-[#F3F4F6]'
-                                        }`}
-                                    >
-                                        ALL ({fleet.length})
-                                    </button>
-                                    <button 
-                                        onClick={() => setFilterStatus('CRITICAL')}
-                                        className={`text-[9px] font-mono font-bold px-2 py-0.5 border transition-all ${
-                                            filterStatus === 'CRITICAL' 
-                                                ? 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]' 
-                                                : 'bg-[#0D0F14] text-[#64748B] border-[#2A2E3D] hover:text-[#F3F4F6]'
-                                        }`}
-                                    >
-                                        ALERTS ({faultCount})
-                                    </button>
-                                    <button 
-                                        onClick={() => setFilterStatus('NOMINAL')}
-                                        className={`text-[9px] font-mono font-bold px-2 py-0.5 border transition-all ${
-                                            filterStatus === 'NOMINAL' 
-                                                ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]' 
-                                                : 'bg-[#0D0F14] text-[#64748B] border-[#2A2E3D] hover:text-[#F3F4F6]'
-                                        }`}
-                                    >
-                                        NOMINAL ({fleet.length - faultCount})
-                                    </button>
-                                </div>
-                            )}
+                            <span className="text-[8px] font-mono bg-[#0A0C10] text-[#10B981] px-1.5 py-0.5 border border-[#10B981]/50 font-bold">
+                                SQS_FIFO
+                            </span>
                         </div>
 
+                        {/* Status Filters */}
+                        {sidebarTab === 'FLEET' && (
+                            <div className="px-3 pt-2.5 pb-2 flex gap-1.5 border-b border-[#242938]">
+                                <button 
+                                    onClick={() => setFilterStatus('ALL')}
+                                    className={`text-[8px] font-mono font-black px-2 py-0.5 border transition-all ${
+                                        filterStatus === 'ALL' 
+                                            ? 'bg-[#00F0FF]/10 text-[#00F0FF] border-[#00F0FF]' 
+                                            : 'bg-[#0A0C10] text-[#64748B] border-[#242938] hover:text-white'
+                                    }`}
+                                >
+                                    ALL ({fleet.length})
+                                </button>
+                                <button 
+                                    onClick={() => setFilterStatus('CRITICAL')}
+                                    className={`text-[8px] font-mono font-black px-2 py-0.5 border transition-all ${
+                                        filterStatus === 'CRITICAL' 
+                                            ? 'bg-[#FFD000]/20 text-[#FFD000] border-[#FFD000]' 
+                                            : 'bg-[#0A0C10] text-[#64748B] border-[#242938] hover:text-white'
+                                    }`}
+                                >
+                                    ALERTS ({faultCount})
+                                </button>
+                                <button 
+                                    onClick={() => setFilterStatus('NOMINAL')}
+                                    className={`text-[8px] font-mono font-black px-2 py-0.5 border transition-all ${
+                                        filterStatus === 'NOMINAL' 
+                                            ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]' 
+                                            : 'bg-[#0A0C10] text-[#64748B] border-[#242938] hover:text-white'
+                                    }`}
+                                >
+                                    NOMINAL ({fleet.length - faultCount})
+                                </button>
+                            </div>
+                        )}
+
                         {error && (
-                            <div className="text-[10px] font-mono border border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444] p-2 mb-2">
+                            <div className="text-[10px] font-mono border-2 border-[#EF4444] bg-[#EF4444]/20 text-[#EF4444] p-2 m-2">
                                 {error}
                             </div>
                         )}
 
                         {/* List Content */}
-                        <div className="flex-1 overflow-y-auto pr-1">
+                        <div className="flex-1 overflow-y-auto p-2.5">
                             {sidebarTab === 'FLEET' ? (
                                 <FleetMatrix 
                                     vehicles={filteredFleet} 
@@ -300,14 +298,14 @@ export default function SCADAConsole() {
                         </div>
 
                         {/* Fleet Dispersion Summary Footer */}
-                        <div className="border-t border-[#2A2E3D] pt-2 mt-2 shrink-0 bg-[#0D0F14] p-2">
-                            <div className="flex justify-between items-center text-[9px] font-mono mb-1">
-                                <span className="text-[#64748B] uppercase">FLEET HEALTH DISPERSION</span>
-                                <span className="text-[#10B981] font-bold">
+                        <div className="border-t-2 border-[#242938] p-2.5 shrink-0 bg-[#0A0C10]">
+                            <div className="flex justify-between items-center text-[9px] font-mono mb-1 font-bold">
+                                <span className="text-[#64748B] uppercase">FLEET DISPERSION</span>
+                                <span className="text-[#10B981]">
                                     {fleet.length > 0 ? `${(((fleet.length - faultCount) / fleet.length) * 100).toFixed(0)}% HEALTHY` : '0%'}
                                 </span>
                             </div>
-                            <div className="w-full bg-[#161922] h-1.5 border border-[#2A2E3D] flex overflow-hidden">
+                            <div className="w-full bg-[#12151D] h-2 border border-[#242938] flex overflow-hidden">
                                 <div 
                                     style={{ width: `${fleet.length > 0 ? ((fleet.length - faultCount) / fleet.length) * 100 : 100}%` }} 
                                     className="bg-[#10B981] h-full" 
@@ -317,9 +315,9 @@ export default function SCADAConsole() {
                                     className="bg-[#EF4444] h-full" 
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-1 text-[8px] font-mono text-[#9CA3AF] mt-1.5">
-                                <div>AVG TEMP: <strong className="text-[#F3F4F6]">{avgTemp}°C</strong></div>
-                                <div className="text-right">AVG ΔV: <strong className="text-[#F3F4F6]">{avgDeltaV} mV</strong></div>
+                            <div className="grid grid-cols-2 gap-1 text-[8px] font-mono text-[#94A3B8] mt-1.5 font-bold">
+                                <div>AVG TEMP: <strong className="text-white font-mono font-black">{avgTemp}°C</strong></div>
+                                <div className="text-right">AVG ΔV: <strong className="text-white font-mono font-black">{avgDeltaV} mV</strong></div>
                             </div>
                         </div>
                     </div>
@@ -342,67 +340,67 @@ export default function SCADAConsole() {
                         <div className="flex flex-col gap-4">
                             
                             {/* Probe Banner with View Mode Selector */}
-                            <div className="neo-card p-3.5 bg-[#161922] flex flex-wrap justify-between items-center gap-3">
+                            <div className="neo-card bg-[#12151D] p-3 flex flex-wrap justify-between items-center gap-2">
                                 <div>
-                                    <div className="flex items-center space-x-2.5">
-                                        <div className={`w-2.5 h-2.5 rounded-full ${
+                                    <div className="flex items-center space-x-2">
+                                        <div className={`w-2.5 h-2.5 ${
                                             activeVehicle.status === 'FAULT' 
                                                 ? 'bg-[#EF4444] animate-ping' 
                                                 : activeVehicle.status === 'WARN' 
-                                                ? 'bg-[#F59E0B]' 
+                                                ? 'bg-[#FFD000]' 
                                                 : 'bg-[#10B981]'
                                         }`} />
-                                        <h3 className="text-lg font-heading text-[#F3F4F6] tracking-wider uppercase font-bold">
-                                            PROBE // <span className="text-[#06B6D4] font-mono">{activeVehicle.vin}</span>
+                                        <h3 className="text-base font-heading font-black text-white tracking-wider uppercase">
+                                            PROBE // <span className="text-[#00F0FF] font-mono">{activeVehicle.vin}</span>
                                         </h3>
-                                        <span className={`text-[9px] font-mono font-bold px-2 py-0.5 border ${
+                                        <span className={`text-[9px] font-mono font-black px-2 py-0.5 border ${
                                             activeVehicle.status === 'FAULT'
-                                                ? 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/40'
+                                                ? 'bg-[#EF4444]/20 text-[#EF4444] border-[#EF4444]'
                                                 : activeVehicle.status === 'WARN'
-                                                ? 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/40'
-                                                : 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/40'
+                                                ? 'bg-[#FFD000]/20 text-[#FFD000] border-[#FFD000]'
+                                                : 'bg-[#10B981]/20 text-[#10B981] border-[#10B981]'
                                         }`}>
                                             {activeVehicle.status}
                                         </span>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                                        <span className="text-[9px] font-mono text-[#9CA3AF] bg-[#0D0F14] px-2 py-0.5 border border-[#2A2E3D]">
-                                            LAST_TX: <span className="text-[#F3F4F6]">{formatTimestamp(activeVehicle.timestamp)}</span>
+                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                        <span className="text-[9px] font-mono text-[#94A3B8] bg-[#0A0C10] px-2 py-0.5 border border-[#242938]">
+                                            LAST_TX: <span className="font-mono font-bold text-white">{formatTimestamp(activeVehicle.timestamp)}</span>
                                         </span>
-                                        <span className="text-[9px] font-mono text-[#9CA3AF] bg-[#0D0F14] px-2 py-0.5 border border-[#2A2E3D]">
-                                            HEALTH: <span className="text-[#10B981] font-bold">{(100 - (activeVehicle.score * 100)).toFixed(1)}%</span>
+                                        <span className="text-[9px] font-mono text-[#94A3B8] bg-[#0A0C10] px-2 py-0.5 border border-[#242938]">
+                                            HEALTH: <span className="font-mono font-black text-[#10B981]">{(100 - (activeVehicle.score * 100)).toFixed(1)}%</span>
                                         </span>
                                     </div>
                                 </div>
 
                                 {/* View Switcher Buttons */}
-                                <div className="flex items-center bg-[#0D0F14] p-1 border border-[#2A2E3D] space-x-1 shadow-[2px_2px_0_0_#000]">
+                                <div className="flex items-center bg-[#0A0C10] p-1 border-2 border-[#242938] space-x-1 shadow-[2px_2px_0_0_#000]">
                                     <button 
                                         onClick={() => setProbeView('gauges')}
-                                        className={`px-3 py-1 text-[10px] font-mono tracking-wider uppercase transition-all flex items-center ${
+                                        className={`px-2.5 py-1 text-[9px] font-mono tracking-wider uppercase transition-all flex items-center font-bold ${
                                             probeView === 'gauges' 
-                                                ? 'bg-[#1C202B] text-[#06B6D4] border border-[#06B6D4] font-bold' 
-                                                : 'text-[#9CA3AF] hover:text-[#F3F4F6]'
+                                                ? 'bg-[#181C26] text-[#00F0FF] border border-[#00F0FF]' 
+                                                : 'text-[#94A3B8] hover:text-white'
                                         }`}
                                     >
-                                        <Zap className="w-3 h-3 mr-1 text-[#06B6D4]" /> Gauges
+                                        <Zap className="w-3 h-3 mr-1 text-[#00F0FF]" /> Gauges
                                     </button>
                                     <button 
                                         onClick={() => setProbeView('thermal')}
-                                        className={`px-3 py-1 text-[10px] font-mono tracking-wider uppercase transition-all flex items-center ${
+                                        className={`px-2.5 py-1 text-[9px] font-mono tracking-wider uppercase transition-all flex items-center font-bold ${
                                             probeView === 'thermal' 
-                                                ? 'bg-[#1C202B] text-[#F59E0B] border border-[#F59E0B] font-bold' 
-                                                : 'text-[#9CA3AF] hover:text-[#F3F4F6]'
+                                                ? 'bg-[#181C26] text-[#FFD000] border border-[#FFD000]' 
+                                                : 'text-[#94A3B8] hover:text-white'
                                         }`}
                                     >
-                                        <Grid className="w-3 h-3 mr-1 text-[#F59E0B]" /> Thermal Matrix
+                                        <Grid className="w-3 h-3 mr-1 text-[#FFD000]" /> Thermal Matrix
                                     </button>
                                     <button 
                                         onClick={() => setProbeView('split')}
-                                        className={`px-3 py-1 text-[10px] font-mono tracking-wider uppercase transition-all flex items-center ${
+                                        className={`px-2.5 py-1 text-[9px] font-mono tracking-wider uppercase transition-all flex items-center font-bold ${
                                             probeView === 'split' 
-                                                ? 'bg-[#1C202B] text-[#10B981] border border-[#10B981] font-bold' 
-                                                : 'text-[#9CA3AF] hover:text-[#F3F4F6]'
+                                                ? 'bg-[#181C26] text-[#10B981] border border-[#10B981]' 
+                                                : 'text-[#94A3B8] hover:text-white'
                                         }`}
                                     >
                                         <Layers className="w-3 h-3 mr-1 text-[#10B981]" /> Dual View
@@ -412,7 +410,7 @@ export default function SCADAConsole() {
 
                             {/* Top Hero Section: Telemetry Gauges / Thermal Matrix */}
                             {probeView === 'gauges' && (
-                                <div className="neo-card bg-[#161922] min-h-[270px] overflow-hidden">
+                                <div className="neo-card bg-[#12151D] min-h-[270px] overflow-hidden">
                                     <DiagnosticsPanel 
                                         vehicle={activeVehicle} 
                                         onSwitchToThermal={() => setProbeView('thermal')} 
@@ -421,7 +419,7 @@ export default function SCADAConsole() {
                             )}
 
                             {probeView === 'thermal' && (
-                                <div className="neo-card bg-[#161922] min-h-[270px] overflow-hidden">
+                                <div className="neo-card bg-[#12151D] min-h-[270px] overflow-hidden">
                                     <PackHeatmap 
                                         vehicle={activeVehicle} 
                                         onSwitchToGauges={() => setProbeView('gauges')} 
@@ -431,10 +429,10 @@ export default function SCADAConsole() {
 
                             {probeView === 'split' && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="neo-card bg-[#161922] min-h-[270px] overflow-hidden">
+                                    <div className="neo-card bg-[#12151D] min-h-[270px] overflow-hidden">
                                         <DiagnosticsPanel vehicle={activeVehicle} />
                                     </div>
-                                    <div className="neo-card bg-[#161922] min-h-[270px] overflow-hidden">
+                                    <div className="neo-card bg-[#12151D] min-h-[270px] overflow-hidden">
                                         <PackHeatmap vehicle={activeVehicle} />
                                     </div>
                                 </div>
@@ -457,12 +455,12 @@ export default function SCADAConsole() {
 
                         </div>
                     ) : (
-                        <div className="neo-card min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-[#161922] space-y-4">
-                            <div className="w-16 h-16 border border-[#2A2E3D] bg-[#0D0F14] flex items-center justify-center shadow-[4px_4px_0_0_#000]">
-                                <Activity className="w-8 h-8 text-[#06B6D4]" />
+                        <div className="neo-card min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-[#12151D] space-y-4">
+                            <div className="w-16 h-16 border-2 border-[#242938] bg-[#0A0C10] flex items-center justify-center shadow-[4px_4px_0_0_#000]">
+                                <Activity className="w-8 h-8 text-[#00F0FF]" />
                             </div>
-                            <span className="text-xl font-heading tracking-widest text-[#F3F4F6]">NO ASSET SELECTED</span>
-                            <p className="font-mono text-xs text-[#9CA3AF] max-w-sm">
+                            <span className="text-xl font-heading font-black tracking-widest text-white">NO ASSET SELECTED</span>
+                            <p className="font-mono text-xs text-[#94A3B8] max-w-sm">
                                 Select an EV asset from the Fleet Matrix on the left to initiate telemetry diagnostics.
                             </p>
                         </div>

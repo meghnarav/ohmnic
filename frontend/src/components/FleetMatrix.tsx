@@ -9,32 +9,32 @@ export default function FleetMatrix({ vehicles, selectedVin, onSelectVin }: {
 }) {
     if (vehicles.length === 0) {
         return (
-            <div className="text-xs font-mono text-[#64748B] border border-dashed border-[#2A2E3D] p-6 text-center bg-[#0D0F14]">
+            <div className="text-xs font-mono text-[#64748B] border-2 border-dashed border-[#242938] p-6 text-center bg-[#0A0C10]">
                 AWAITING_TELEMETRY_INGESTION...
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col space-y-2.5 pb-2">
+        <div className="flex flex-col space-y-2 pb-1">
             {vehicles.map((v) => {
                 const isSelected = v.vin === selectedVin;
                 const isFault = v.status === 'FAULT';
                 const isWarn = v.status === 'WARN';
 
-                let borderColor = '#2A2E3D';
+                let borderColor = '#242938';
                 let statusBadgeColor = '#10B981';
-                let cardBg = isSelected ? 'bg-[#1C202B]' : 'bg-[#0D0F14]';
+                let cardBg = isSelected ? 'bg-[#181C26]' : 'bg-[#12151D]';
 
                 if (isSelected) {
-                    borderColor = '#06B6D4';
+                    borderColor = '#00F0FF';
                 }
                 if (isFault) {
                     statusBadgeColor = '#EF4444';
-                    if (!isSelected) borderColor = '#EF444466';
+                    if (!isSelected) borderColor = '#EF444488';
                 } else if (isWarn) {
-                    statusBadgeColor = '#F59E0B';
-                    if (!isSelected) borderColor = '#F59E0B66';
+                    statusBadgeColor = '#FFD000';
+                    if (!isSelected) borderColor = '#FFD00088';
                 }
 
                 return (
@@ -42,29 +42,29 @@ export default function FleetMatrix({ vehicles, selectedVin, onSelectVin }: {
                         key={v.vin} 
                         onClick={() => onSelectVin(v.vin)}
                         style={{ borderColor }}
-                        className={`clickable cursor-pointer p-3 flex flex-col transition-all border shadow-[2px_2px_0px_#000000] ${cardBg} ${
-                            isSelected ? 'translate-x-1 shadow-[3px_3px_0px_#000000]' : 'hover:border-[#3E455B]'
+                        className={`clickable cursor-pointer p-3 flex flex-col transition-all border-2 shadow-[3px_3px_0px_#000000] ${cardBg} ${
+                            isSelected ? 'translate-x-1 shadow-[4px_4px_0px_#000000]' : 'hover:border-[#384158]'
                         }`}
                     >
                         {/* Card Header */}
-                        <div className="flex justify-between items-center mb-2 pb-1.5 border-b border-[#2A2E3D]">
+                        <div className="flex justify-between items-center mb-2 pb-1 border-b border-[#242938]">
                             <div className="flex items-center space-x-2">
-                                <div className="w-5 h-5 flex items-center justify-center">
+                                <div className="w-4 h-4 flex items-center justify-center">
                                     {isFault ? (
                                         <ShieldAlert className="w-4 h-4 text-[#EF4444]" />
                                     ) : isWarn ? (
-                                        <AlertTriangle className="w-4 h-4 text-[#F59E0B]" />
+                                        <AlertTriangle className="w-4 h-4 text-[#FFD000]" />
                                     ) : (
                                         <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
                                     )}
                                 </div>
-                                <span className="font-mono text-xs font-bold text-[#F3F4F6] tracking-tight">
+                                <span className="font-mono text-xs font-bold text-white tracking-tight">
                                     {v.vin}
                                 </span>
                             </div>
                             <span 
                                 style={{ color: statusBadgeColor, borderColor: statusBadgeColor }}
-                                className="text-[9px] font-mono px-1.5 py-0.5 border bg-[#161922] font-bold tracking-wider"
+                                className="text-[9px] font-mono px-1.5 py-0.5 border bg-[#0A0C10] font-black tracking-wider"
                             >
                                 {v.status}
                             </span>
@@ -72,15 +72,15 @@ export default function FleetMatrix({ vehicles, selectedVin, onSelectVin }: {
 
                         {/* Telemetry Metrics Grid */}
                         <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
-                            <div className="flex flex-col bg-[#161922] p-1.5 border border-[#2A2E3D]">
-                                <span className="text-[8px] text-[#64748B] uppercase">HEALTH INDEX</span>
-                                <span className="text-xs font-bold text-[#F3F4F6] text-right">
+                            <div className="flex flex-col bg-[#0A0C10] p-1.5 border border-[#242938]">
+                                <span className="text-[8px] text-[#64748B] uppercase font-bold">HEALTH INDEX</span>
+                                <span className="font-mono font-black text-sm text-white text-right">
                                     {(100 - (v.score * 100)).toFixed(1)}%
                                 </span>
                             </div>
-                            <div className="flex flex-col bg-[#161922] p-1.5 border border-[#2A2E3D]">
-                                <span className="text-[8px] text-[#64748B] uppercase">CORE TEMP</span>
-                                <span className="text-xs font-bold text-[#F3F4F6] text-right">
+                            <div className="flex flex-col bg-[#0A0C10] p-1.5 border border-[#242938]">
+                                <span className="text-[8px] text-[#64748B] uppercase font-bold">CORE TEMP</span>
+                                <span className="font-mono font-black text-sm text-white text-right">
                                     {v.maxTemp.toFixed(1)}°C
                                 </span>
                             </div>
