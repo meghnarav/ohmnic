@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import FleetMatrix from "@/components/FleetMatrix";
 import DiagnosticsPanel from "@/components/DiagnosticsPanel";
 import AttributionTable from "@/components/AttributionTable";
@@ -48,6 +48,8 @@ export default function SCADAConsole() {
     const [probeView, setProbeView] = useState<"gauges" | "thermal" | "split">("gauges");
     const [filterStatus, setFilterStatus] = useState<"ALL" | "CRITICAL" | "NOMINAL">("ALL");
     const [sidebarTab, setSidebarTab] = useState<"FLEET" | "ALERTS">("FLEET");
+
+
 
     const fetchFleet = async () => {
         try {
@@ -112,6 +114,39 @@ export default function SCADAConsole() {
     };
 
     const activeVehicle = fleet.find((v) => v.vin === selectedVin) || null;
+
+    const col2Ref = useRef<HTMLDivElement>(null);
+    const [col2Height, setCol2Height] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!col2Ref.current) return;
+        const updateHeight = () => {
+            if (!col2Ref.current) return;
+            let totalH = 0;
+            const children = Array.from(col2Ref.current.children);
+            children.forEach((child, idx) => {
+                totalH += (child as HTMLElement).offsetHeight;
+                if (idx > 0) totalH += 16;
+            });
+            if (totalH > 0) {
+                setCol2Height(totalH);
+            }
+        };
+
+        updateHeight();
+        const observer = new ResizeObserver(() => {
+            updateHeight();
+        });
+
+        observer.observe(col2Ref.current);
+        Array.from(col2Ref.current.children).forEach(c => observer.observe(c));
+        window.addEventListener("resize", updateHeight);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", updateHeight);
+        };
+    }, [activeVehicle, probeView]);
     const faultCount = fleet.filter(v => v.status === "FAULT" || v.status === "WARN").length;
     const systemHealth = fleet.length > 0 ? (100 - (faultCount / fleet.length) * 100).toFixed(1) : "100.0";
 
@@ -201,10 +236,15 @@ export default function SCADAConsole() {
             <div className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
                 
                 {/* Column 1: Fleet Assets & Anomaly Queue (lg:col-span-4) */}
-                <section className="lg:col-span-4 flex flex-col gap-4 h-full">
+                <section className="lg:col-span-4 flex flex-col gap-4 min-w-0">
                     
                     {/* Fleet Assets Master Panel */}
-                    <div className="neo-card flex-1 min-h-[580px] flex flex-col bg-white">
+                    <div 
+                        style={{
+                            height: col2Height && col2Height > 300 ? `${col2Height - 16 - 260}px` : undefined
+                        }}
+                        className="neo-card h-[520px] lg:h-[598px] flex-none flex flex-col bg-white overflow-hidden transition-[height] duration-150"
+                    >
                         {/* Section Header with Tabs */}
                         <div className="bg-[#DFE3DC] px-3 py-1.5 border-b-2 border-[#1E2229] flex justify-between items-center shrink-0">
                             <div className="flex space-x-1.5">
@@ -238,7 +278,7 @@ export default function SCADAConsole() {
 
                         {/* Status Filters */}
                         {sidebarTab === "FLEET" && (
-                            <div className="px-3 pt-2.5 pb-2 flex gap-1.5 border-b border-[#1E2229]/20 bg-[#ECEEEA]">
+                            <div className="px-3 pt-2.5 pb-2 flex gap-1.5 border-b border-[#1E2229]/20 bg-[#ECEEEA] shrink-0">
                                 <button 
                                     onClick={() => setFilterStatus("ALL")}
                                     className={`text-[8px] font-mono font-black px-2 py-0.5 border border-[#1E2229] transition-all ${
@@ -279,7 +319,7 @@ export default function SCADAConsole() {
                         )}
 
                         {/* List Content */}
-                        <div className="flex-1 overflow-y-auto p-2.5 bg-white">
+                        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 bg-white">
                             {sidebarTab === "FLEET" ? (
                                 <FleetMatrix 
                                     vehicles={filteredFleet} 
@@ -324,7 +364,7 @@ export default function SCADAConsole() {
                     </div>
 
                     {/* Edge Ingestion Gateway Card */}
-                    <div className="neo-card h-[290px] overflow-hidden flex flex-col bg-white">
+                    <div className="neo-card h-[260px] shrink-0 overflow-hidden flex flex-col bg-white">
                         <EdgeGatewayCard 
                             fleetCount={fleet.length} 
                             faultCount={faultCount} 
@@ -336,12 +376,12 @@ export default function SCADAConsole() {
                 </section>
 
                 {/* Column 2: Vehicle Operations & Telemetry Bench (lg:col-span-8) */}
-                <section className="lg:col-span-8 flex flex-col gap-4 min-w-0 h-full">
+                <section className="lg:col-span-8 flex flex-col gap-4 min-w-0">
                     {activeVehicle ? (
-                        <div className="flex flex-col gap-4">
+                        <div ref={col2Ref} className="flex flex-col gap-4">
                             
                             {/* Probe Banner with View Mode Selector */}
-                            <div className="neo-card bg-white p-3 flex flex-wrap justify-between items-center gap-2">
+                            <div className="neo-card bg-white p-3 flex flex-wrap justify-between items-center gap-2 shrink-0">
                                 <div>
                                     <div className="flex items-center space-x-2">
                                         <div className={`w-2.5 h-2.5 ${
@@ -411,7 +451,7 @@ export default function SCADAConsole() {
 
                             {/* Top Hero Section: Telemetry Gauges / Thermal Matrix */}
                             {probeView === "gauges" && (
-                                <div className="neo-card bg-white min-h-[270px] overflow-hidden">
+                                <div className="neo-card bg-white h-[270px] shrink-0 overflow-hidden">
                                     <DiagnosticsPanel 
                                         vehicle={activeVehicle} 
                                         onSwitchToThermal={() => setProbeView("thermal")} 
@@ -420,7 +460,7 @@ export default function SCADAConsole() {
                             )}
 
                             {probeView === "thermal" && (
-                                <div className="neo-card bg-white min-h-[270px] overflow-hidden">
+                                <div className="neo-card bg-white h-[270px] shrink-0 overflow-hidden">
                                     <PackHeatmap 
                                         vehicle={activeVehicle} 
                                         onSwitchToGauges={() => setProbeView("gauges")} 
@@ -429,34 +469,34 @@ export default function SCADAConsole() {
                             )}
 
                             {probeView === "split" && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="neo-card bg-white min-h-[270px] overflow-hidden">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[270px] shrink-0">
+                                    <div className="neo-card bg-white h-full overflow-hidden">
                                         <DiagnosticsPanel vehicle={activeVehicle} />
                                     </div>
-                                    <div className="neo-card bg-white min-h-[270px] overflow-hidden">
+                                    <div className="neo-card bg-white h-full overflow-hidden">
                                         <PackHeatmap vehicle={activeVehicle} />
                                     </div>
                                 </div>
                             )}
 
                             {/* Middle Section: AI Triage and TreeSHAP Diagnostics */}
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 min-h-[260px]">
-                                <div className="md:col-span-5 neo-card overflow-hidden flex flex-col bg-white">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 h-[260px] shrink-0">
+                                <div className="md:col-span-5 neo-card overflow-hidden flex flex-col bg-white h-full">
                                     <AITriageAdvisory vehicle={activeVehicle} />
                                 </div>
-                                <div className="md:col-span-7 neo-card overflow-hidden flex flex-col bg-white">
+                                <div className="md:col-span-7 neo-card overflow-hidden flex flex-col bg-white h-full">
                                     <AttributionTable shap={activeVehicle.shap} anomalyScore={activeVehicle.score} />
                                 </div>
                             </div>
 
                             {/* Bottom Hero Section: Docked Raw CAN Telemetry Stream */}
-                            <div className="neo-card h-[220px] overflow-hidden flex flex-col bg-white">
+                            <div className="neo-card h-[220px] shrink-0 overflow-hidden flex flex-col bg-white">
                                 <TelemetryLog fleet={telemetryLogs} selectedVin={selectedVin} />
                             </div>
 
                         </div>
                     ) : (
-                        <div className="neo-card min-h-[500px] flex flex-col items-center justify-center text-center p-8 bg-white space-y-4">
+                        <div className="neo-card h-[874px] flex flex-col items-center justify-center text-center p-8 bg-white space-y-4">
                             <div className="w-16 h-16 border-2 border-[#1E2229] bg-[#ECEEEA] flex items-center justify-center shadow-[4px_4px_0_0_#1E2229]">
                                 <Activity className="w-8 h-8 text-[#2563EB]" />
                             </div>

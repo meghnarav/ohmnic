@@ -17,7 +17,7 @@ interface TelemetryLogProps {
 }
 
 export default function TelemetryLog({ fleet, selectedVin }: TelemetryLogProps) {
-    const logEndRef = useRef<HTMLDivElement>(null);
+    const consoleRef = useRef<HTMLDivElement>(null);
     const [isPaused, setIsPaused] = useState<boolean>(false);
     const [filterByVin, setFilterByVin] = useState<boolean>(false);
     const [displayLogs, setDisplayLogs] = useState<VehicleRecord[]>([]);
@@ -30,8 +30,8 @@ export default function TelemetryLog({ fleet, selectedVin }: TelemetryLogProps) 
     }, [fleet, isPaused]);
 
     useEffect(() => {
-        if (!isPaused && logEndRef.current) {
-            logEndRef.current.scrollIntoView({ behavior: "smooth" });
+        if (!isPaused && consoleRef.current) {
+            consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
         }
     }, [displayLogs, isPaused]);
 
@@ -141,7 +141,7 @@ export default function TelemetryLog({ fleet, selectedVin }: TelemetryLogProps) 
             )}
 
             {/* Embedded Dark LCD Screen Console */}
-            <div className="flex-1 m-2 border-2 border-[#1E2229] bg-[#181C24] p-3 overflow-y-auto font-mono text-xs space-y-1 shadow-[inset_0_2px_6px_rgba(0,0,0,0.8)]">
+            <div ref={consoleRef} className="flex-1 m-2 border-2 border-[#1E2229] bg-[#181C24] p-3 overflow-y-auto font-mono text-xs space-y-1 shadow-[inset_0_2px_6px_rgba(0,0,0,0.8)]">
                 {filteredLogs.length === 0 ? (
                     <div className="text-[#10B981] font-mono text-xs uppercase flex items-center space-x-2">
                         <span className="inline-block w-2 h-2 bg-[#10B981] animate-ping" />
@@ -171,7 +171,7 @@ export default function TelemetryLog({ fleet, selectedVin }: TelemetryLogProps) 
                         </div>
                     ))
                 )}
-                <div ref={logEndRef} />
+                
             </div>
         </div>
     );

@@ -55,7 +55,7 @@ export default function EdgeGatewayCard({
             )}
 
             {/* Content Body */}
-            <div className="p-3.5 flex-1 flex flex-col justify-between space-y-3 bg-[#FFFFFF]">
+            <div className="p-2.5 flex-1 flex flex-col justify-between space-y-2 bg-[#FFFFFF] overflow-hidden">
                 {/* Pipeline Stats Grid */}
                 <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
                     <div className="border-2 border-[#1E2229] p-2 bg-[#ECEEEA] flex flex-col justify-between shadow-[2px_2px_0px_#1E2229]">

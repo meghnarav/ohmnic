@@ -6,7 +6,7 @@ const BlockyProgress = ({ value, max, label, color, unit, icon: Icon, tag }: any
     const progress = Math.min((parseFloat(value) / max) * 100, 100);
 
     return (
-        <div className="flex flex-col border-2 border-[#1E2229] p-3 bg-[#FFFFFF] shadow-[3px_3px_0px_#1E2229]">
+        <div className="flex flex-col border-2 border-[#1E2229] p-2.5 bg-[#FFFFFF] shadow-[3px_3px_0px_#1E2229]">
             <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-[#1E2229]/20">
                 <div className="flex items-center space-x-1.5">
                     <Icon className="w-3.5 h-3.5" style={{ color }} strokeWidth={2.5} />
@@ -15,7 +15,7 @@ const BlockyProgress = ({ value, max, label, color, unit, icon: Icon, tag }: any
                 <span className="text-[9px] font-mono font-bold text-[#4B5565]">[{tag}]</span>
             </div>
             
-            <div className="flex items-baseline justify-between mb-2">
+            <div className="flex items-baseline justify-between mb-1.5">
                 <div className="flex items-baseline space-x-1.5">
                     <span className="text-[#0F131A] font-mono font-black tracking-tighter text-3xl leading-none">{value}</span>
                     <span className="text-[#1E2229] font-mono font-bold text-[10px] bg-[#ECEEEA] px-1 border border-[#1E2229]">{unit}</span>
@@ -83,7 +83,7 @@ export default function DiagnosticsPanel({ vehicle, onSwitchToThermal }: Diagnos
             </div>
             
             {/* 4 Instrumentation Wells */}
-            <div className="p-3.5 flex-1 grid grid-cols-2 gap-3 bg-[#FFFFFF]">
+            <div className="p-2.5 flex-1 grid grid-cols-2 gap-2.5 bg-[#FFFFFF]">
                 <BlockyProgress 
                     value={vehicle.packVoltage.toFixed(2)} 
                     max={maxVoltage} 
