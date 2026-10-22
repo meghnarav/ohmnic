@@ -201,10 +201,10 @@ export default function SCADAConsole() {
             <div className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
                 
                 {/* Column 1: Fleet Assets & Anomaly Queue (lg:col-span-4) */}
-                <section className="lg:col-span-4 flex flex-col gap-4">
+                <section className="lg:col-span-4 flex flex-col gap-4 h-full">
                     
                     {/* Fleet Assets Master Panel */}
-                    <div className="neo-card h-[490px] flex flex-col bg-white">
+                    <div className="neo-card flex-1 min-h-[580px] flex flex-col bg-white">
                         {/* Section Header with Tabs */}
                         <div className="bg-[#DFE3DC] px-3 py-1.5 border-b-2 border-[#1E2229] flex justify-between items-center shrink-0">
                             <div className="flex space-x-1.5">
@@ -336,7 +336,7 @@ export default function SCADAConsole() {
                 </section>
 
                 {/* Column 2: Vehicle Operations & Telemetry Bench (lg:col-span-8) */}
-                <section className="lg:col-span-8 flex flex-col gap-4 min-w-0">
+                <section className="lg:col-span-8 flex flex-col gap-4 min-w-0 h-full">
                     {activeVehicle ? (
                         <div className="flex flex-col gap-4">
                             
