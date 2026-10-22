@@ -13,58 +13,52 @@ interface BatteryPackCanvasProps {
 function BatteryModule({ position, voltage, isAnomaly, index }: { position: [number, number, number], voltage: number, isAnomaly: boolean, index: number }) {
   const mesh = useRef<THREE.Mesh>(null!);
   
-  // Subtle hovering animation
   useFrame((state) => {
     if (mesh.current) {
       mesh.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 2 + index) * 0.05;
     }
   });
 
-  // Base color logic
-  let color = "#16181D";
+  let color = "#FFFFFF";
   if (isAnomaly) {
-    color = "#ff4876";
+    color = "#DC2626";
   } else {
-    // Map voltage to a slight green-cyan tint for healthy cells
-    const normalized = (voltage - 3.0) / 1.2; // 3.0V to 4.2V mapped to 0-1
-    color = new THREE.Color().setHSL(0.5, 0.5, 0.1 + (normalized * 0.2)).getStyle();
+    const normalized = Math.max(0, Math.min(1, (voltage - 3.0) / 1.2));
+    color = normalized > 0.8 ? "#FFFFFF" : "#DFE3DC";
   }
 
   return (
     <Box position={position} args={[1.8, 0.4, 1.2]} ref={mesh}>
-      <meshStandardMaterial color={color} metalness={0.8} roughness={0.2} />
-      <Edges scale={1.05} threshold={15} color={isAnomaly ? "#ff4876" : "#06B6D4"} />
+      <meshStandardMaterial color={color} metalness={0.2} roughness={0.4} />
+      <Edges scale={1.05} threshold={15} color={isAnomaly ? "#DC2626" : "#1E2229"} />
     </Box>
   );
 }
 
 export default function BatteryPackCanvas({ cells, status }: BatteryPackCanvasProps) {
-  // A skateboard pack architecture: 4 rows, 6 columns (24 cells/modules)
   const rows = 4;
   const cols = 6;
   const spacingX = 2.2;
   const spacingZ = 1.6;
 
-  // Determine an outlier to highlight
-  const avgV = cells.reduce((sum, v) => sum + v, 0) / cells.length;
+  const avgV = cells.length > 0 ? cells.reduce((sum, v) => sum + v, 0) / cells.length : 4.0;
 
   return (
-    <div style={{ width: "100%", height: "300px", backgroundColor: "#0E1014", border: "1px solid #242933", position: "relative" }}>
-      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 10, color: "#9CA3AF", fontSize: "10px", pointerEvents: "none" }}>
+    <div style={{ width: "100%", height: "300px", backgroundColor: "#ECEEEA", border: "2px solid #1E2229", position: "relative" }}>
+      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 10, color: "#4B5565", fontFamily: "monospace", fontSize: "10px", pointerEvents: "none", fontWeight: "bold" }}>
         3D SKATEBOARD PACK ARCHITECTURE<br/>
-        <span style={{ color: status === 'FAULT' ? '#ff4876' : '#10B981' }}>{status}</span>
+        <span style={{ color: status === "FAULT" ? "#DC2626" : status === "WARN" ? "#D97706" : "#059669" }}>{status}</span>
       </div>
       <Canvas camera={{ position: [0, 8, 10], fov: 40 }}>
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 5]} intensity={1} color="#ffffff" />
-        <directionalLight position={[-10, 5, -5]} intensity={0.5} color="#06B6D4" />
+        <ambientLight intensity={0.8} />
+        <directionalLight position={[10, 10, 5]} intensity={1.2} color="#ffffff" />
+        <directionalLight position={[-10, 5, -5]} intensity={0.4} color="#DFE3DC" />
         
         <group position={[-((cols - 1) * spacingX) / 2, 0, -((rows - 1) * spacingZ) / 2]}>
           {cells.map((volt, idx) => {
             const r = Math.floor(idx / cols);
             const c = idx % cols;
-            // Mark as anomaly if it deviates > 50mV from average or if the overall status is FAULT and it's the worst cell
-            const isAnomaly = Math.abs(volt - avgV) > 0.05 || (status === 'FAULT' && idx === 14); // hardcoding 14 as the simulated fault from SEED data for visual effect
+            const isAnomaly = Math.abs(volt - avgV) > 0.05 || (status === "FAULT" && idx === 14);
             
             return (
               <BatteryModule
@@ -85,7 +79,7 @@ export default function BatteryPackCanvas({ cells, status }: BatteryPackCanvasPr
           autoRotate={true}
           autoRotateSpeed={0.5}
         />
-        <Environment preset="night" />
+        <Environment preset="city" />
       </Canvas>
     </div>
   );
